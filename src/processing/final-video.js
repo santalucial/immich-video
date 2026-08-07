@@ -157,16 +157,15 @@ if (processedClips.length === 0) {
 }
 
 progressCallback(`🧰 Applying transitions…`);
-await createFinalVideoWithTransitions(processedClips, outputPath, transitions, options.audio);
-
-
+// Music is mixed afterwards — do not pull remote audio URLs into the transition encode.
+await createFinalVideoWithTransitions(processedClips, outputPath, transitions);
 
 if (Array.isArray(options.audio) && options.audio.length > 0 && options.audio[0].url) {
   const audioUrl = options.audio[0].url;
   const audioTempPath = path.join(tempFolder, 'temp_audio.mp3');
   const mixedOutputPath = outputPath.replace('.mp4', '_mixed.mp4');
 
-  progressCallback(`🎵 Loading audio from ${audioUrl}`);
+  progressCallback(`🎵 Downloading music for mix: ${audioUrl}`);
   execSync(`curl -L "${audioUrl}" -o "${audioTempPath}"`);
 
   const ffmpegCmd = `ffmpeg -i "${outputPath}" -i "${audioTempPath}" \
@@ -250,25 +249,11 @@ function cleanAllMediaFiles() {
   });
 }
 
-function createFinalVideoWithTransitions(mediaFiles, outputPath, transitions = [], audioTracks = []) {
+function createFinalVideoWithTransitions(mediaFiles, outputPath, transitions = []) {
   let inputArgs = mediaFiles.map(file => `-i "${file.clipOutput}"`).join(' ');
   const hasTransitions = Array.isArray(transitions) && transitions.length > 0;
 
-  
-  const audioInputs = [];
-  const audioFilterInputs = [];
-  const audioOffsets = [];
-
-  audioTracks.forEach((track, idx) => {
-    const safeUrl = track.url.replace(/"/g, '\"');
-    inputArgs += ` -itsoffset ${track.start || 0} -i "${safeUrl}"`;
-    audioInputs.push(`[${mediaFiles.length + idx}:a]`);
-  });
-
-  const allAudios = mediaFiles.length > 1 ? `[aout]` : `[0:a]`;
-  const mixInputs = [allAudios, ...audioInputs];
-  const mixFilter = `${mixInputs.join('')}amix=inputs=${mixInputs.length}:duration=longest[audioMixed]`;
-const filterParts = [];
+  const filterParts = [];
   const audioParts = [];
   let videoOut = '';
   let audioOut = '';

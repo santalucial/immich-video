@@ -1001,14 +1001,14 @@
 
           div.innerHTML = `
       <div><strong>${track.name}</strong> – ${track.artist_name}</div>
-      <audio controls src="${track.audio}" style="width: 100%; margin-top: 4px;"></audio>
+      <audio controls preload="none" style="width: 100%; margin-top: 4px;"></audio>
       <small>License: <a href="${track.license_ccurl}" target="_blank">${track.license_ccurl}</a></small>
     `;
 
+          const audioEl = div.querySelector('audio');
+          attachLazyAudioSrc(audioEl, track.audio);
+
           div.addEventListener('dragstart', (e) => {
-            div.addEventListener('dblclick', () => {
-              addAudioToTimeline(track);
-            });
             e.dataTransfer.setData('application/json', JSON.stringify({
               type: 'AUDIO',
               title: track.name,
@@ -1026,31 +1026,54 @@
         });
       }
 
+      // Only assign src when the user interacts with the player — search results must not download audio eagerly.
+      function attachLazyAudioSrc(audioEl, url) {
+        if (!audioEl || !url) return;
+        audioEl.dataset.src = url;
+        audioEl.preload = 'none';
+
+        const ensureSrc = () => {
+          if (audioEl.getAttribute('src') || !audioEl.dataset.src) return;
+          audioEl.src = audioEl.dataset.src;
+        };
+
+        audioEl.addEventListener('pointerdown', ensureSrc);
+        audioEl.addEventListener('keydown', (e) => {
+          if (e.code === 'Space' || e.code === 'Enter' || e.key === 'k') ensureSrc();
+        });
+      }
+
       function addAudioToTimeline(track) {
         const start = totalAudioDuration;
-        const src = track.url || track.src;
-        const title = track.title || '🎵 Audio';
+        const src = track.audio || track.url || track.src;
+        const title = track.name || track.title || '🎵 Audio';
+        // Jamendo (and drag payload) already include duration — avoid downloading just for metadata.
+        const duration = Number(track.duration) || 10;
 
-        const audio = new Audio(src);
-        audio.addEventListener('loadedmetadata', () => {
-          const duration = audio.duration || track.duration || 10;
+        if (!src) {
+          console.warn('Cannot add audio track without a URL');
+          return;
+        }
 
-          audioTimeline.push({
-            ...track,
-            src,
-            title,
-            start,
-            duration
-          });
-
-          totalAudioDuration += duration;
-          renderAudioTimeline();
+        audioTimeline.push({
+          ...track,
+          src,
+          url: src,
+          title,
+          artist: track.artist_name || track.artist || '',
+          license: track.license_ccurl || track.license || '',
+          source: track.source || 'jamendo',
+          start,
+          duration
         });
+
+        totalAudioDuration += duration;
+        renderAudioTimeline();
       }
 
 
       async function fetchJamendoTracks(query) {
-        const url = `https://api.jamendo.com/v3.0/tracks/?client_id=${JAMENDO_CLIENT_ID}&format=json&liwith=10&namesearch=${encodeURIComponent(query)}&audioformat=mp31`;
+        const url = `https://api.jamendo.com/v3.0/tracks/?client_id=${JAMENDO_CLIENT_ID}&format=json&limit=10&namesearch=${encodeURIComponent(query)}&audioformat=mp31`;
         const res = await fetch(url);
         const json = await res.json();
         return json.results;
@@ -1058,52 +1081,6 @@
 
       const audioTimeline = []; // List of Jamendo tracks added to the timeline
       let totalAudioDuration = 0;
-
-      function addJamendoTrackToTimeline(button) {
-        const src = button.dataset.src;
-        const title = button.dataset.title;
-
-        const start = totalAudioDuration;
-
-        const audio = new Audio(src);
-        audio.addEventListener('loadedmetadata', () => {
-          const duration = audio.duration;
-
-          audioTimeline.push({
-            src,
-            title,
-            start,
-            duration,
-          });
-
-          totalAudioDuration += duration;
-
-          renderAudioTimeline();
-        });
-      }
-
-      function addJamendoTrackToTimeline(button) {
-        const src = button.dataset.src;
-        const title = button.dataset.title;
-
-        const start = totalAudioDuration;
-
-        const audio = new Audio(src);
-        audio.addEventListener('loadedmetadata', () => {
-          const duration = audio.duration;
-
-          audioTimeline.push({
-            src,
-            title,
-            start,
-            duration,
-          });
-
-          totalAudioDuration += duration;
-
-          renderAudioTimeline();
-        });
-      }
 
       function renderAudioTimeline() {
         const container = document.getElementById("audioTimeline");
@@ -2315,7 +2292,7 @@ async function searchTopTracks() {
   const resultsContainer = document.getElementById('ccmixterResults');
   resultsContainer.innerHTML = '<p>🔍 Searching popular songs…</p>';
 
-  const url = `https://api.jamendo.com/v3.0/tracks/?client_id=${JAMENDO_CLIENT_ID}&format=json&liwith=10&order=popularity_total&audioformat=mp31`;
+  const url = `https://api.jamendo.com/v3.0/tracks/?client_id=${JAMENDO_CLIENT_ID}&format=json&limit=10&order=popularity_total&audioformat=mp31`;
   const res = await fetch(url);
   const json = await res.json();
   displayTracks(json.results);
@@ -2327,11 +2304,28 @@ function displayTracks(tracks) {
   tracks.forEach(track => {
     const div = document.createElement('div');
     div.classList.add('track');
+    div.draggable = true;
     div.innerHTML = `
       <div><strong>${track.name}</strong> – ${track.artist_name}</div>
-      <audio controls src="${track.audio}" style="width: 100%; margin-top: 4px;"></audio>
+      <audio controls preload="none" style="width: 100%; margin-top: 4px;"></audio>
       <small>License: <a href="${track.license_ccurl}" target="_blank">${track.license_ccurl}</a></small>
     `;
+    const audioEl = div.querySelector('audio');
+    attachLazyAudioSrc(audioEl, track.audio);
+    div.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('application/json', JSON.stringify({
+        type: 'AUDIO',
+        title: track.name,
+        artist: track.artist_name,
+        url: track.audio,
+        duration: track.duration,
+        license: track.license_ccurl,
+        source: 'jamendo'
+      }));
+    });
+    div.addEventListener('dblclick', () => {
+      addAudioToTimeline(track);
+    });
     resultsContainer.appendChild(div);
   });
 }
