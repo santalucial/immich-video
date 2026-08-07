@@ -22,14 +22,14 @@ module.exports = {
       // Album laden
       // ...
       const album = await fetchAlbum();
-      console.log(`Album geladen: ${album.albumName}`);
+      console.log(`Album loaded: ${album.albumName}`);
 
       // Medien herunterladen
       await Promise.all(album.assets.map(async (asset) => {
         // Wir verwenden originalFileName
         // z.B. "20250312_170019.jpg"
         const fileName = path.join(mediaFolder, asset.originalFileName);
-        console.log("Speichere Datei:", fileName);
+        console.log("Saving file:", fileName);
         await downloadAsset(asset, fileName);
         console.log("mediaFolder in main-process:", mediaFolder);
         // Wichtig: Im Asset merken wir uns den Dateinamen für das Frontend

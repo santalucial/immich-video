@@ -70,6 +70,7 @@ CAPTION_MODEL=blip-caption:latest
 # Immich API
 IMMICH_API_KEY=your-immich-api-key
 IMMICH_API=http://192.168.x.x:2283/api
+
 # or external address
 # IMMICH_API=https://foto.domain.com/api
 

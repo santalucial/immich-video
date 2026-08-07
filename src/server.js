@@ -28,19 +28,19 @@ app.use(express.static(path.join(__dirname, '../public')));
 const mediaFolder = path.join('medien');
 if (!fs.existsSync(mediaFolder)) {
   fs.mkdirSync(mediaFolder, { recursive: true });
-  console.log('"medien/" wurde erstellt.');
+  console.log('"medien/" created.');
 }
 
 const tempFolder = path.join(__dirname, '../temp');
 if (!fs.existsSync(tempFolder)) {
   fs.mkdirSync(tempFolder, { recursive: true });
-  console.log(`Temp-Ordner wurde erstellt: ${tempFolder}`);
+  console.log(`Temp folder created: ${tempFolder}`);
 }
 
 const processingMediaFolder = path.join(__dirname, 'processing', 'medien');
 if (!fs.existsSync(processingMediaFolder)) {
   fs.mkdirSync(processingMediaFolder, { recursive: true });
-  console.log('"processing/medien/" wurde erstellt.');
+  console.log('"processing/medien/" created.');
 }
 
 // Statische Pfade
@@ -64,10 +64,10 @@ app.get('/api/albums', async (req, res) => {
   try {
     const { fetchAlbums } = require('./processing/immich-api');
     const albums = await fetchAlbums();
-    console.log("GET /api/albums - Antwort:", albums);
+    console.log("GET /api/albums - response:", albums);
     res.json(albums);
   } catch (error) {
-    console.error("GET /api/albums - Fehler:", error);
+    console.error("GET /api/albums - error:", error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -77,7 +77,7 @@ app.get('/api/videoThumbnail', async (req, res) => {
   const { videoName } = req.query;
 
   if (!videoName) {
-    return res.status(400).json({ error: 'Kein videoName angegeben' });
+    return res.status(400).json({ error: 'videoName is required' });
   }
 
   try {
@@ -90,12 +90,12 @@ app.get('/api/videoThumbnail', async (req, res) => {
     const thumbPath = await generateThumbnail(videoPath, thumbnailPath);
 
     if (!fs.existsSync(thumbPath)) {
-      return res.status(404).json({ error: 'Thumbnail konnte nicht erstellt werden' });
+      return res.status(404).json({ error: 'Could not create thumbnail' });
     }
 
     res.sendFile(thumbPath);
   } catch (error) {
-    console.error("Fehler beim Abrufen des Thumbnails:", error.message);
+    console.error("Error fetching thumbnail:", error.message);
     res.status(500).json({ error: error.message });
   }
 });
@@ -105,81 +105,110 @@ app.get('/api/generateTitle', async (req, res) => {
   try {
     const ALBUM_ID = req.query.albumId;
     const generatedTitles = await generateTitleOnly(ALBUM_ID);
-    console.log("GET /api/generateTitle - Antwort:", generatedTitles);
+    console.log("GET /api/generateTitle - response:", generatedTitles);
     res.json({ finalTitles: generatedTitles });
   } catch (error) {
-    console.error("GET /api/generateTitle - Fehler:", error);
+    console.error("GET /api/generateTitle - error:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
 
-const { execSync } = require('child_process');
-
-function getDurationInMs(filePath) {
-  try {
-    const output = execSync(`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${filePath}"`);
-    return Math.round(parseFloat(output.toString().trim()) * 1000);
-  } catch (err) {
-    console.warn(`⚠️ Konnte Dauer für ${filePath} nicht ermitteln. Fallback auf 3000ms.`);
-    return 3000;
-  }
-}
-
 app.get('/api/album', async (req, res) => {
   try {
     const albumId = req.query.albumId;
     if (!albumId) {
-      console.error("GET /api/album - Fehler: Album-ID fehlt");
-      return res.status(400).send("Album-ID wird benötigt");
+      console.error("GET /api/album - error: album ID missing");
+      return res.status(400).send("Album ID is required");
     }
-    const { fetchAlbum, downloadAsset } = require('./processing/immich-api');
+    const { fetchAlbum } = require('./processing/immich-api');
     const album = await fetchAlbum(albumId);
-    console.log(`GET /api/album - Album geladen: ${album.albumName}`);
+    console.log(`GET /api/album - album loaded: ${album.albumName} (${album.assets.length} Assets)`);
 
-    const mediaFolder = path.join(__dirname, '../medien');
-    await Promise.all(album.assets.map(async (asset, idx) => {
-      const ext = asset.type === 'VIDEO' ? '.mp4' : '.jpg';
-      const fileName = path.join(mediaFolder, asset.originalFileName);
-      console.log("GET /api/album - Lade herunter:", fileName);
-      await downloadAsset(asset, fileName);
+    const responseAssets = [];
+
+    for (const asset of album.assets) {
       asset.downloadName = asset.originalFileName;
-
-
+      responseAssets.push(asset);
 
       if (asset.livePhotoVideoId) {
         const liveVideoFileName = `${asset.livePhotoVideoId}.mp4`;
-        const liveVideoPath = path.join(mediaFolder, liveVideoFileName);
-
-        if (!fs.existsSync(liveVideoPath)) {
-          console.log(`Lade Live-Video ${asset.livePhotoVideoId} für Asset ${asset.id}`);
-          await downloadLivePhotoVideo(asset.livePhotoVideoId, liveVideoPath);
-        }
-
-        // 🧠 Dauer aus dem echten Video auslesen
-        const realDuration = getDurationInMs(liveVideoPath);
-
-        const liveAsset = {
+        responseAssets.push({
+          id: asset.livePhotoVideoId,
           type: 'VIDEO',
           downloadName: liveVideoFileName,
           originalFileName: liveVideoFileName,
-          duration: realDuration,
+          duration: 3000,
           isLivePhoto: true,
-          sourceImageId: asset.id
-        };
-
-        album.assets.push(liveAsset);
+          sourceImageId: asset.id,
+          livePhotoVideoId: asset.livePhotoVideoId,
+        });
       }
+    }
 
-
-
-    }));
-
-    console.log("GET /api/album - Antwort (Assets):", album.assets);
-    res.json(album.assets);
+    // Metadata only — originals are downloaded on demand (export / ensureDownloads).
+    console.log(`GET /api/album - responding with ${responseAssets.length} assets (no downloads)`);
+    res.json(responseAssets);
   } catch (error) {
-    console.error("GET /api/album - Fehler:", error);
+    console.error("GET /api/album - error:", error);
     res.status(500).send(error.message);
+  }
+});
+
+app.get('/api/immich/thumbnail/:id', async (req, res) => {
+  try {
+    const { streamAssetThumbnail } = require('./processing/immich-api');
+    await streamAssetThumbnail(req.params.id, res);
+  } catch (error) {
+    console.error('Thumbnail proxy error:', error.message);
+    if (!res.headersSent) {
+      res.status(502).json({ error: 'Could not load thumbnail' });
+    }
+  }
+});
+
+app.get('/api/immich/video/:id', async (req, res) => {
+  try {
+    const { streamAssetVideo } = require('./processing/immich-api');
+    await streamAssetVideo(req.params.id, req, res);
+  } catch (error) {
+    console.error('Video proxy error:', error.message);
+    if (!res.headersSent) {
+      res.status(502).json({ error: 'Could not stream video' });
+    }
+  }
+});
+
+app.post('/api/ensureDownloads', async (req, res) => {
+  try {
+    const items = Array.isArray(req.body?.items) ? req.body.items : [];
+    if (items.length === 0) {
+      return res.json({ success: true, downloaded: 0 });
+    }
+
+    const { downloadAssetsLimited } = require('./processing/immich-api');
+    const mediaFolder = path.join(__dirname, '../medien');
+    if (!fs.existsSync(mediaFolder)) {
+      fs.mkdirSync(mediaFolder, { recursive: true });
+    }
+
+    const jobs = items
+      .filter((item) => item?.downloadName)
+      .map((item) => {
+        const filename = path.join(mediaFolder, item.downloadName);
+        if (item.isLivePhoto || item.livePhotoVideoId) {
+          return { videoId: item.livePhotoVideoId || item.id, filename };
+        }
+        if (!item.id) return null;
+        return { asset: { id: item.id }, filename };
+      })
+      .filter(Boolean);
+
+    const result = await downloadAssetsLimited(jobs);
+    res.json({ success: true, ...result });
+  } catch (error) {
+    console.error('POST /api/ensureDownloads - error:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -207,16 +236,16 @@ app.post('/api/intro', async (req, res) => {
   try {
     const { title } = req.body;
     if (!title) {
-      console.error("POST /api/intro - Fehler: Kein Titel angegeben");
-      return res.status(400).json({ error: 'Kein Titel angegeben' });
+      console.error("POST /api/intro - error: no title provided");
+      return res.status(400).json({ error: 'No title provided' });
     }
 
     const outputFile = path.join(__dirname, '../medien', 'intro.mp4');
     await createIntroClip(title, outputFile);
-    console.log("POST /api/intro - Intro-Clip erstellt:", outputFile);
+    console.log("POST /api/intro - intro clip created:", outputFile);
     res.json({ success: true, file: outputFile });
   } catch (error) {
-    console.error("POST /api/intro - Fehler:", error);
+    console.error("POST /api/intro - error:", error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -232,13 +261,13 @@ app.post('/api/export', async (req, res) => {
       audio: req.body.audio // 🔥 das hat gefehlt!
     };
     if (exportData.audio && Array.isArray(exportData.audio)) {
-      console.log(`🎧 Audio empfangen – Anzahl: ${exportData.audio.length}`);
+      console.log(`🎧 Audio received – count: ${exportData.audio.length}`);
       exportData.audio.forEach((track, i) => {
-        console.log(`  ▶️ [${i}] Titel: ${track.title}`);
+        console.log(`  ▶️ [${i}] Title: ${track.title}`);
         console.log(`     URL: ${track.url}`);
       });
     } else {
-      console.log('🚫 Kein Audio im Export-Request enthalten.');
+      console.log('🚫 No audio included in export request.');
     }
 
     // Hier den gewünschten Outputnamen generieren
@@ -250,10 +279,10 @@ app.post('/api/export', async (req, res) => {
     // Übergabe von exportData statt req.body
     // Wir übergeben jetzt exportData und outputPath
     const outputFile = await generateFinalVideo(exportData, outputPath, sendProgressUpdate);
-    console.log("POST /api/export - Finales Video erstellt:", outputFile);
+    console.log("POST /api/export - final video created:", outputFile);
     res.json({ success: true, file: outputFile });
   } catch (error) {
-    console.error("POST /api/export - Fehler:", error);
+    console.error("POST /api/export - error:", error);
     res.status(500).send(error.message);
   }
 });
@@ -265,7 +294,7 @@ app.get('/api/generateMusicTags', async (req, res) => {
     const tags = await generateMusicTagsOnly(albumId);
     res.json(tags);
   } catch (err) {
-    res.status(500).json({ error: err.message || 'Fehler beim Generieren der Musik-Tags' });
+    res.status(500).json({ error: err.message || 'Error generating music tags' });
   }
 });
 
@@ -275,18 +304,18 @@ app.get('/api/livePhotoVideo', async (req, res) => {
   const { videoId } = req.query;
 
   if (!videoId) {
-    return res.status(400).json({ error: 'Kein videoId angegeben' });
+    return res.status(400).json({ error: 'videoId is required' });
   }
 
   const liveVideoPath = path.join(__dirname, 'media/live', `${videoId}.mp4`);
 
   // Prüfe, ob das Video bereits existiert
   if (!fs.existsSync(liveVideoPath)) {
-    console.log(`Live-Video ${videoId} nicht gefunden, lade es herunter...`);
+    console.log(`Live-Video ${videoId} not found, downloading...`);
     try {
       await downloadLivePhotoVideo(videoId, liveVideoPath);
     } catch (error) {
-      return res.status(500).json({ error: 'Fehler beim Laden des Live-Photo-Videos' });
+      return res.status(500).json({ error: 'Error loading live photo video' });
     }
   }
 
@@ -300,10 +329,10 @@ app.post('/api/uploadFinal', async (req, res) => {
   try {
     const { albumId, title } = req.body; // Wir erwarten nun 'title'
     if (!albumId) {
-      console.error("POST /api/uploadFinal - Fehler: Album-ID fehlt im Request Body");
-      return res.status(400).json({ error: 'Album-ID fehlt' });
+      console.error("POST /api/uploadFinal - error: album ID missing in request body");
+      return res.status(400).json({ error: 'Album ID is missing' });
     }
-    console.log(`POST /api/uploadFinal - Starte Upload des finalen Videos für Album ${albumId}`);
+    console.log(`POST /api/uploadFinal - starting final video upload for album ${albumId}`);
 
     // Generiere den Dateinamen wie im Export-Endpoint
     let fileName = title && title.trim() ? title : 'final-video';
@@ -311,8 +340,8 @@ app.post('/api/uploadFinal', async (req, res) => {
     const finalVideoPath = path.join(__dirname, '../public/output', fileName);
 
     if (!fs.existsSync(finalVideoPath)) {
-      console.error("POST /api/uploadFinal - Fehler: Finales Video nicht gefunden unter:", finalVideoPath);
-      return res.status(400).json({ error: 'Finales Video nicht gefunden' });
+      console.error("POST /api/uploadFinal - error: final video not found at:", finalVideoPath);
+      return res.status(400).json({ error: 'Final video not found' });
     }
 
     // 1. Upload des finalen Videos an Immich
@@ -325,7 +354,7 @@ app.post('/api/uploadFinal', async (req, res) => {
     form.append('fileCreatedAt', new Date().toISOString());
     form.append('fileModifiedAt', new Date().toISOString());
 
-    console.log("POST /api/uploadFinal - Sende Upload-Anfrage an Immich für:", finalVideoPath);
+    console.log("POST /api/uploadFinal - sending upload request to Immich for:", finalVideoPath);
 
     try {
       // ACHTUNG: Verwende hier /assets statt /assets/upload
@@ -339,17 +368,17 @@ app.post('/api/uploadFinal', async (req, res) => {
         maxContentLength: Infinity,
         maxBodyLength: Infinity
       });
-      console.log("POST /api/uploadFinal - Upload-Antwort von Immich:", uploadResponse.data);
+      console.log("POST /api/uploadFinal - Immich upload response:", uploadResponse.data);
 
       const assetId = uploadResponse.data.id;
       if (!assetId) {
-        throw new Error('Kein Asset-ID vom Upload erhalten');
+        throw new Error('No asset ID received from upload');
       }
-      console.log("POST /api/uploadFinal - Erhaltene Asset-ID:", assetId);
+      console.log("POST /api/uploadFinal - received asset ID:", assetId);
 
       // 2. Füge das hochgeladene Asset dem Album hinzu
       const putData = { ids: [assetId] };
-      console.log("POST /api/uploadFinal - Sende PUT-Anfrage zum Hinzufügen des Assets zum Album:", albumId);
+      console.log("POST /api/uploadFinal - sending PUT request to add asset to album:", albumId);
 
       try {
         const putResponse = await axios.put(
@@ -362,30 +391,30 @@ app.post('/api/uploadFinal', async (req, res) => {
             }
           }
         );
-        console.log("POST /api/uploadFinal - Antwort des Hinzufügens zum Album:", putResponse.data);
+        console.log("POST /api/uploadFinal - add-to-album response:", putResponse.data);
         res.json({ success: true, result: putResponse.data });
 
       } catch (putError) {
-        console.error("POST /api/uploadFinal - Fehler beim Hinzufügen zum Album:", putError.message);
+        console.error("POST /api/uploadFinal - error adding to album:", putError.message);
         if (putError.response) {
-          console.error("POST /api/uploadFinal - Status:", putError.response.status);
-          console.error("POST /api/uploadFinal - Daten:", putError.response.data);
+          console.error("POST /api/uploadFinal - status:", putError.response.status);
+          console.error("POST /api/uploadFinal - data:", putError.response.data);
         }
         return res.status(500).json({ error: putError.message });
       }
 
     } catch (uploadError) {
-      console.error("POST /api/uploadFinal - Fehler beim Upload:", uploadError.message);
+      console.error("POST /api/uploadFinal - upload error:", uploadError.message);
       if (uploadError.response) {
-        console.error("POST /api/uploadFinal - Status:", uploadError.response.status);
-        console.error("POST /api/uploadFinal - Daten:", uploadError.response.data);
-        console.error("POST /api/uploadFinal - Headers:", uploadError.response.headers); // Logge die Request-Headers
+        console.error("POST /api/uploadFinal - status:", uploadError.response.status);
+        console.error("POST /api/uploadFinal - data:", uploadError.response.data);
+        console.error("POST /api/uploadFinal - headers:", uploadError.response.headers); // Logge die Request-Headers
       }
       return res.status(500).json({ error: uploadError.message });
     }
 
   } catch (error) {
-    console.error('POST /api/uploadFinal - Unerwarteter Fehler:', error);
+    console.error('POST /api/uploadFinal - unexpected error:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -403,7 +432,7 @@ app.use('/proxy/ollama', createProxyMiddleware({
 
 
 
-const clients = []; // global am Anfang der Datei (z. B. direkt nach `const app = express()` definieren)
+const clients = []; // global am Anfang der Datei (z. B. direkt to `const app = express()` definieren)
 
 app.get('/events', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
@@ -413,12 +442,12 @@ app.get('/events', (req, res) => {
   res.write('retry: 10000\n\n'); // Wiederverbindungsintervall für SSE
 
   clients.push(res);
-  console.log("📡 Neuer SSE-Client verbunden. Gesamt:", clients.length);
+  console.log("📡 New SSE client connected. Total:", clients.length);
 
   req.on('close', () => {
     const index = clients.indexOf(res);
     if (index !== -1) clients.splice(index, 1);
-    console.log("❌ SSE-Client getrennt. Gesamt:", clients.length);
+    console.log("❌ SSE client disconnected. Total:", clients.length);
   });
 });
 
@@ -442,7 +471,7 @@ app.get('/api/export-progress', (req, res) => {
   res.flushHeaders();
 
   // Direkt einmal "verbunden" senden
-  res.write(`data: ⏳ Export gestartet...\n\n`);
+  res.write(`data: ⏳ Export started...\n\n`);
 
   currentExportClients.push(res);
 
@@ -457,5 +486,5 @@ app.get('/api/export-progress', (req, res) => {
 
 
 app.listen(port, '0.0.0.0', () => {
-  console.log(`Server läuft auf http://127.0.0.1:${port}`);
+  console.log(`Server running at http://127.0.0.1:${port}`);
 });

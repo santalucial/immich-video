@@ -385,6 +385,45 @@
       box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
     }
 
+    .media-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 14px;
+      align-items: center;
+      margin: 0 0 12px 0;
+      padding: 10px 12px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+    }
+
+    .media-toolbar label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.85rem;
+      color: #cfcfcf;
+      margin: 0;
+    }
+
+    .media-toolbar select {
+      background: #2a2a2a;
+      color: #eee;
+      border: 1px solid #444;
+      border-radius: 4px;
+      padding: 4px 8px;
+    }
+
+    .media-toolbar .media-filter-check input {
+      margin: 0;
+    }
+
+    .media-count {
+      margin-left: auto;
+      font-size: 0.85rem;
+      color: #9aa0a6;
+    }
+
     .transition-list {
       align-items: center;
       justify-content: center;
@@ -474,7 +513,7 @@
       height: 100vh;
       /* <- Wichtig */
       padding-bottom: 80px;
-      /* damit nichts abgeschnitten wird */
+      /* dawith nichts abgeschnitten wird */
       position: fixed;
       top: 0;
       right: 0;
@@ -604,10 +643,10 @@
   </button>
 
   <div class="settings-overlay" id="settingsPanel">
-    <h2>Einstellungen</h2>
+    <h2>Settings</h2>
 
     <div class="form-group">
-      <label for="languageSelect">Sprache / Language</label>
+      <label for="languageSelect">Language</label>
       <select id="languageSelect">
         <option value="de">Deutsch</option>
         <option value="en">English</option>
@@ -640,7 +679,7 @@
     </div>
 
     <div class="form-group">
-      <label for="OLLAMA_MODEL">Ollama Modell</label>
+      <label for="OLLAMA_MODEL">Ollama Model</label>
       <select id="OLLAMA_MODEL"></select>
     </div>
 
@@ -657,63 +696,63 @@
 
 
     <div class="form-group">
-      <label for="previewSize">Vorschau-Größe</label>
+      <label for="previewSize">Preview Size</label>
       <input type="range" id="previewSize" min="200" max="800" value="600" />
     </div>
 
     <div class="form-group">
-      <label for="LIVE_REPEAT_COUNT">Live-Video Wiederholungen</label>
+      <label for="LIVE_REPEAT_COUNT">Live Video Repeats</label>
       <input type="number" id="LIVE_REPEAT_COUNT" min="1" max="10" value="5" />
     </div>
 
-    <button onclick="saveEnvSettings()" style="margin-top: 20px; width: 100%;">Speichern</button>
+    <button onclick="saveEnvSettings()" style="margin-top: 20px; width: 100%;">Save</button>
   </div>
 
   <div class="container">
     <!-- Sidebar -->
     <div class="sidebar">
 
-      <h2 data-i18n="menu">    Menü</h2>
+      <h2 data-i18n="menu">Menu</h2>
 
       <h3>Album</h3>
       <div class="form-group">
-        <label data-i18n="select_album">1. Album auswählen</label>
+        <label data-i18n="select_album">1. Select Album</label>
         <select id="albumSelect">
-          <option value="">-- Bitte wählen --</option>
+          <option value="">-- Please select --</option>
         </select>
       </div>
       <div class="form-group">
-        <label for="uploadAlbum" data-i18n="upload_album_id">Album-ID für Upload</label>
-        <input type="text" id="uploadAlbum" placeholder="Album-ID">
+        <label for="uploadAlbum" data-i18n="upload_album_id">Upload Album ID</label>
+        <input type="text" id="uploadAlbum" placeholder="Album ID">
 
       </div>
 
-      <h3>Medien</h3>
+      <h3>Media</h3>
       <div class="form-group">
-        <button id="addAllToTimelineBtn" data-i18n="add_random_transitions">Alle mit Zufallsü. hinzufügen</button>
-        <button id="addAllNoTransitionBtn" data-i18n="add_all_media">Alle Medien hinzufügen</button>
-        <button id="addLivePhotosBtn">📸 Alle Livebilder einfügen</button>
+        <button id="addAllToTimelineBtn" data-i18n="add_random_transitions">Add all with random transitions</button>
+        <button id="addAllNoTransitionBtn" data-i18n="add_all_media">Add all media</button>
+        <button id="addLivePhotosBtn">📸 Add all live photos</button>
       </div>
 
-      <h3>Videotitel</h3>
+      <h3>Video Title</h3>
       <div class="form-group">
-        <label for="title" data-i18n="title">Titel</label>
-        <input type="text" id="title" class="form-control" value="Generierter Titel">
+        <label for="title" data-i18n="title">Title</label>
+        <input type="text" id="title" class="form-control" value="Generated Title">
         <select id="titleSelect" style="display:none; margin-top: 10px;"></select>
       </div>
       <div class="form-group">
-        <button id="generateTitleBtn" data-i18n="generate_title">Titel generieren</button>
-        <button id="generateIntroBtn" data-i18n="generate_intro">Intro Clip generieren</button>
+        <button id="generateTitleBtn" data-i18n="generate_title">Generate Title</button>
+        <button id="generateIntroBtn" data-i18n="generate_intro">Generate Intro Clip</button>
         <button id="generate-music-tags" class="btn">🎼 Generate Music Tags</button>
       </div>
 
       <h3>Export</h3>
       <div class="form-group">
-        <button id="exportBtn" class="btn-primary" data-i18n="export">Export starten</button>
-        <button id="uploadFinalBtn" data-i18n="upload_final">Finales Video hochladen</button>
+        <button id="exportBtn" class="btn-primary" data-i18n="export">Start Export</button>
+        <button id="uploadFinalBtn" data-i18n="upload_final">Upload Final Video</button>
       </div>
       <div class="form-group">
-        <label for="resolution" data-i18n="resolution">Auflösung</label>
+        <label for="resolution" data-i18n="resolution">Resolution</label>
         <select id="resolution">
           <option value="1080p">1920x1080</option>
           <option value="720p">1280x720</option>
@@ -726,10 +765,10 @@
       <div id="timelineDuration" data-i18n-prefix="total_duration">Total Duration: 00:00:00</div>
       <!-- Video-Container -->
       <div id="videoContainer">
-        <h3 data-i18n="final_video">Finales Video</h3>
+        <h3 data-i18n="final_video">Final Video</h3>
         <video id="finalVideo" width="640" controls>
           <source src="" type="video/mp4">
-          Dein Browser unterstützt dieses Videoformat nicht.
+          Your browser does not support this video format.
         </video>
 
       </div>
@@ -751,10 +790,10 @@
       <div class="timeline" id="timeline"></div>
       <div id="audioTimeline" class="timeline-layer audio-track-layer"></div>
 
-      <h3>Musiksuche</h3>
+      <h3>Music Search</h3>
 <div class="form-group">
-  <input id="ccmixterSearchInput" type="text" placeholder="Stichwort (z.B. lofi, piano, ambient)" />
-  <button onclick="searchCCMixter()">🔎 Suche starten</button>
+  <input id="ccmixterSearchInput" type="text" placeholder="Keyword (e.g. lofi, piano, ambient)" />
+  <button onclick="searchCCMixter()">🔎 Search</button>
 </div>
 
 <!-- Schnellauswahl Buttons -->
@@ -766,13 +805,13 @@
   <button onclick="quickSearch('electronic')">🎛️ Electronic</button>
   <button onclick="quickSearch('chill')">❄️ Chill</button>
   <button onclick="quickSearch('hiphop')">🎤 HipHop</button>
-  <button onclick="quickSearch('classical')">🎻 Klassik</button>
+  <button onclick="quickSearch('classical')">🎻 Classical</button>
 </div>
 
 <!-- Extra Buttons -->
 <div class="form-group" style="display: flex; flex-wrap: wrap; gap: 6px;">
-  <button onclick="randomMusicSearch()">🎲 Zufälliges Genre</button>
-  <button onclick="searchTopTracks()">🔥 Beliebte Songs</button>
+  <button onclick="randomMusicSearch()">🎲 Random genre</button>
+  <button onclick="searchTopTracks()">🔥 Popular songs</button>
 </div>
 
 <!-- Suchergebnisse -->
@@ -780,7 +819,7 @@
 
 
 
-      <h3 data-i18n="transitions">Übergänge</h3>
+      <h3 data-i18n="transitions">Transitions</h3>
       <div id="transitionList" class="transition-list">
         <div class="transition-item" draggable="true" data-transition="fade" title="Fade"><i class="fas fa-adjust"></i>
         </div>
@@ -797,7 +836,35 @@
       </div>
 
       <div class="form-group">
-        <h3>Medien</h3>
+        <h3>Media</h3>
+        <div class="media-toolbar">
+          <label>
+            Sort
+            <select id="mediaSort">
+              <option value="date-desc">Date (newest)</option>
+              <option value="date-asc">Date (oldest)</option>
+              <option value="name-asc">Name A–Z</option>
+              <option value="name-desc">Name Z–A</option>
+            </select>
+          </label>
+          <label>
+            Type
+            <select id="mediaTypeFilter">
+              <option value="all">All</option>
+              <option value="IMAGE">Images</option>
+              <option value="VIDEO">Videos</option>
+            </select>
+          </label>
+          <label class="media-filter-check">
+            <input type="checkbox" id="hideLivePhotos" checked>
+            Hide live photos
+          </label>
+          <label class="media-filter-check">
+            <input type="checkbox" id="favoritesOnly">
+            Favorites only
+          </label>
+          <span id="mediaCount" class="media-count">0</span>
+        </div>
         <div id="mediaList" class="media-list"></div>
         <div id="loadingIndicator" class="loading-spinner" style="display: none;"></div>
       </div>
@@ -807,13 +874,81 @@
 
 
     <script>
-      let currentLang = localStorage.getItem("lang") || "de";
+      let currentLang = localStorage.getItem("lang") || "en";
       let translations = {};
       let mediaItems = [];
+      let allMediaItems = [];
       let timelineItems = [];
       let draggedItem = null;
       let draggedTransition = null;
       let draggedTimelineIndex = null;
+
+      function getAssetDateMs(item) {
+        const raw = item.localDateTime || item.fileCreatedAt || item.createdAt;
+        const ms = raw ? Date.parse(raw) : NaN;
+        return Number.isFinite(ms) ? ms : 0;
+      }
+
+      function isLivePhotoItem(item) {
+        return Boolean(item.isLivePhoto || item.livePhotoVideoId);
+      }
+
+      function applyMediaView() {
+        const sortEl = document.getElementById('mediaSort');
+        const typeEl = document.getElementById('mediaTypeFilter');
+        const hideLiveEl = document.getElementById('hideLivePhotos');
+        const favoritesEl = document.getElementById('favoritesOnly');
+        if (!sortEl || !typeEl || !hideLiveEl || !favoritesEl) return;
+
+        const sort = sortEl.value;
+        const typeFilter = typeEl.value;
+        const hideLive = hideLiveEl.checked;
+        const favoritesOnly = favoritesEl.checked;
+
+        let items = allMediaItems.slice();
+
+        if (typeFilter !== 'all') {
+          items = items.filter((item) => item.type === typeFilter);
+        }
+        if (hideLive) {
+          items = items.filter((item) => !isLivePhotoItem(item));
+        }
+        if (favoritesOnly) {
+          items = items.filter((item) => item.isFavorite);
+        }
+
+        items.sort((a, b) => {
+          if (sort === 'date-asc') return getAssetDateMs(a) - getAssetDateMs(b);
+          if (sort === 'date-desc') return getAssetDateMs(b) - getAssetDateMs(a);
+          const nameA = (a.originalFileName || a.downloadName || '').toLowerCase();
+          const nameB = (b.originalFileName || b.downloadName || '').toLowerCase();
+          if (sort === 'name-asc') return nameA.localeCompare(nameB);
+          if (sort === 'name-desc') return nameB.localeCompare(nameA);
+          return 0;
+        });
+
+        mediaItems = items;
+
+        const countEl = document.getElementById('mediaCount');
+        if (countEl) {
+          countEl.textContent = `${mediaItems.length} / ${allMediaItems.length}`;
+        }
+
+        renderMediaList();
+        loadVideoThumbnails();
+      }
+
+      function setAlbumMedia(items) {
+        allMediaItems = Array.isArray(items) ? items : [];
+        applyMediaView();
+      }
+
+      ['mediaSort', 'mediaTypeFilter', 'hideLivePhotos', 'favoritesOnly'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.addEventListener('change', applyMediaView);
+        }
+      });
 
       async function loadTranslations(lang) {
         try {
@@ -821,7 +956,7 @@
           translations = await res.json();
           updateUI();
         } catch (e) {
-          console.error("Fehler beim Laden der Sprachdatei:", e);
+          console.error("Error loading language file:", e);
         }
       }
 
@@ -840,10 +975,10 @@
       async function searchCCMixter() {
         const query = document.getElementById('ccmixterSearchInput').value.trim();
         const resultsContainer = document.getElementById('ccmixterResults');
-        resultsContainer.innerHTML = '<p>🔍 Suche in Jamendo…</p>';
+        resultsContainer.innerHTML = '<p>🔍 Searching Jamendo…</p>';
 
         if (!query) {
-          resultsContainer.innerHTML = '<p>Bitte Suchbegriff eingeben.</p>';
+          resultsContainer.innerHTML = '<p>Please enter a search term.</p>';
           return;
         }
 
@@ -855,7 +990,7 @@
         resultsContainer.appendChild(jamendoHeader);
 
         if (jamendoTracks.length === 0) {
-          resultsContainer.innerHTML += '<p>Keine Jamendo-Titel gefunden.</p>';
+          resultsContainer.innerHTML += '<p>No Jamendo tracks found.</p>';
           return;
         }
 
@@ -867,7 +1002,7 @@
           div.innerHTML = `
       <div><strong>${track.name}</strong> – ${track.artist_name}</div>
       <audio controls src="${track.audio}" style="width: 100%; margin-top: 4px;"></audio>
-      <small>Lizenz: <a href="${track.license_ccurl}" target="_blank">${track.license_ccurl}</a></small>
+      <small>License: <a href="${track.license_ccurl}" target="_blank">${track.license_ccurl}</a></small>
     `;
 
           div.addEventListener('dragstart', (e) => {
@@ -915,13 +1050,13 @@
 
 
       async function fetchJamendoTracks(query) {
-        const url = `https://api.jamendo.com/v3.0/tracks/?client_id=${JAMENDO_CLIENT_ID}&format=json&limit=10&namesearch=${encodeURIComponent(query)}&audioformat=mp31`;
+        const url = `https://api.jamendo.com/v3.0/tracks/?client_id=${JAMENDO_CLIENT_ID}&format=json&liwith=10&namesearch=${encodeURIComponent(query)}&audioformat=mp31`;
         const res = await fetch(url);
         const json = await res.json();
         return json.results;
       }
 
-      const audioTimeline = []; // Liste mit hinzugefügten Jamendo-Tracks
+      const audioTimeline = []; // List of Jamendo tracks added to the timeline
       let totalAudioDuration = 0;
 
       function addJamendoTrackToTimeline(button) {
@@ -1039,7 +1174,7 @@
             addAudioToTimeline(parsed);
           }
         } catch (err) {
-          console.warn("Fehler beim Drop auf Audio-Timeline:", err);
+          console.warn("Error dropping onto audio timeline:", err);
         }
       });
 
@@ -1069,8 +1204,8 @@
             select.appendChild(opt);
           });
         } catch (err) {
-          console.warn("Kann Ollama Modelle nicht laden:", err);
-          select.innerHTML = `<option>Fehler beim Laden</option>`;
+          console.warn("Could not load Ollama models:", err);
+          select.innerHTML = `<option>Failed to load</option>`;
         }
       }
 
@@ -1097,11 +1232,11 @@
             if (el) el.value = env[key] || "";
           });
 
-          // 🔽 Direkt danach Modelle laden
+          // 🔽 Direkt dato Modelle laden
           populateOllamaModels(env.OLLAMA_MODEL || "");
 
         } catch (err) {
-          console.error("Fehler beim Laden der .env:", err);
+          console.error("Error loading .env:", err);
         }
       }
 
@@ -1132,12 +1267,12 @@
           });
 
           if (res.ok) {
-            alert(".env gespeichert!");
+            alert(".env saved!");
           } else {
-            alert("Fehler beim Speichern der .env");
+            alert("Error saving .env");
           }
         } catch (err) {
-          console.error("Fehler beim Speichern:", err);
+          console.error("Error saving:", err);
         }
       }
 
@@ -1149,7 +1284,7 @@
         if (item.type === 'IMAGE') {
           // Falls die Dauer als String '0:00:00.00000' oder leer ist, setze 5000ms (5s)
           if (!item.duration || item.duration === "0:00:00.00000" || item.duration === "00:00:00.000") {
-            console.warn(`Bild ${item.downloadName} hatte keine Dauer, setze 5000ms`);
+            console.warn(`Image ${item.downloadName} had no duration, using 5000ms`);
             item.duration = 5000; // 5 Sekunden in Millisekunden
           } else if (typeof item.duration === 'string') {
             // Falls die Dauer ein String ist (z. B. "00:00:08.440"), umwandeln
@@ -1160,7 +1295,7 @@
           item.duration = parseDurationString(item.duration);
         }
 
-        console.log(`Finale Dauer für ${item.downloadName || 'Unbekannt'}:`, item.duration);
+        console.log(`Final duration for ${item.downloadName || 'Unknown'}:`, item.duration);
       }
 
 
@@ -1183,7 +1318,7 @@
 
       document.getElementById('addAllNoTransitionBtn').addEventListener('click', () => {
         if (!mediaItems || mediaItems.length === 0) {
-          alert("Keine Medien zum Hinzufügen vorhanden!");
+          alert("No media available to add!");
           return;
         }
 
@@ -1199,7 +1334,7 @@
 
       document.getElementById('addAllToTimelineBtn').addEventListener('click', () => {
         if (!mediaItems || mediaItems.length === 0) {
-          alert("Keine Medien zum Hinzufügen vorhanden!");
+          alert("No media available to add!");
           return;
         }
 
@@ -1217,7 +1352,7 @@
         mediaItems.forEach((item, index) => {
           timelineItems.push(item);
 
-          // Zufälligen Übergang hinzufügen, außer nach dem letzten Element
+          // Zufälligen Übergang hinzufügen, except after the last item
           if (index < mediaItems.length - 1) {
             const randomTransition = transitions[Math.floor(Math.random() * transitions.length)];
             timelineItems.push({
@@ -1234,14 +1369,14 @@
 
       document.getElementById('addLivePhotosBtn').addEventListener('click', () => {
         if (!mediaItems || mediaItems.length === 0) {
-          alert("Keine Medien geladen!");
+          alert("No media loaded!");
           return;
         }
 
         const liveItems = mediaItems.filter(item => item.isLivePhoto);
 
         if (liveItems.length === 0) {
-          alert("Keine Live-Bilder im aktuellen Album gefunden.");
+          alert("No live photos found in the current album.");
           return;
         }
 
@@ -1253,21 +1388,21 @@
         });
 
         renderTimeline();
-        console.log(`📸 ${liveItems.length} Livebilder hinzugefügt.`);
+        console.log(`📸 Added ${liveItems.length} live photos.`);
       });
 
 
 
       document.getElementById('addLivePhotosBtn').addEventListener('click', () => {
   if (!mediaItems || mediaItems.length === 0) {
-    alert("Keine Medien geladen!");
+    alert("No media loaded!");
     return;
   }
 
   const liveItems = mediaItems.filter(item => item.isLivePhoto);
 
   if (liveItems.length === 0) {
-    alert("Keine Live-Bilder im aktuellen Album gefunden.");
+    alert("No live photos found in the current album.");
     return;
   }
 
@@ -1279,7 +1414,7 @@
   });
 
   renderTimeline();
-  console.log(`📸 ${liveItems.length} Livebilder hinzugefügt.`);
+  console.log(`📸 Added ${liveItems.length} live photos.`);
 });
 
 
@@ -1288,19 +1423,19 @@
         /* try {
             const response = await fetch('/api/album');
             if (!response.ok) {
-                throw new Error('Fehler beim Laden der Medien');
+                throw new Error('Error loading media');
             }
             mediaItems = await response.json();
     
             mediaItems.forEach(item => {
                 ensureImageDuration(item);
-                console.log(`Media geladen:`, item); // <-- Jetzt ist item definiert
+                console.log(`Media loaded:`, item); // <-- Jetzt ist item definiert
             });
     
             //renderMediaList();
     
         } catch (error) {
-            console.error('Init-Fehler:', error);
+            console.error('Init error:', error);
         }*/
 
         initTransitions();
@@ -1312,10 +1447,10 @@
 
         try {
           const response = await fetch('/api/albums');
-          if (!response.ok) throw new Error('Fehler beim Laden der Alben');
+          if (!response.ok) throw new Error('Error loading albums');
           const albums = await response.json();
           const albumSelect = document.getElementById('albumSelect');
-          albumSelect.innerHTML = '<option value="">-- Bitte wählen --</option>';
+          albumSelect.innerHTML = '<option value="">-- Please select --</option>';
           albums.forEach(album => {
             const option = document.createElement('option');
             option.value = album.id;
@@ -1323,7 +1458,7 @@
             albumSelect.appendChild(option);
           });
         } catch (error) {
-          console.error('Fehler beim Laden der Alben:', error);
+          console.error('Error loading albums:', error);
         }
         //await downloadLivePhotoVideos(); // Live-Photo-Videos herunterladen
 
@@ -1344,19 +1479,17 @@
         try {
           const response = await fetch(`/api/album?albumId=${encodeURIComponent(albumId)}`);
           if (!response.ok) {
-            throw new Error('Fehler beim Laden des Albums');
+            throw new Error('Error loading album');
           }
           const albumMedia = await response.json();
-          console.log('Gewähltes Album:', albumMedia);
+          console.log('Selected album:', albumMedia);
 
-          mediaItems = albumMedia;
-          renderMediaList();
-          await loadVideoThumbnails(); // Hier wird loadVideoThumbnails() aufgerufen
+          setAlbumMedia(albumMedia);
           document.getElementById('uploadAlbum').value = e.target.value;
           //await downloadLivePhotoVideos();  // <-- Hier wird sichergestellt, dass die Live-Videos geladen werden
 
         } catch (error) {
-          console.error('Fehler beim Laden des ausgewählten Albums:', error);
+          console.error('Error loading selected album:', error);
         } finally {
           loadingIndicator.style.display = 'none';
         }
@@ -1369,13 +1502,13 @@
           const uploadResult = await uploadAssetFile(filePath);
           // Nehme an, dass uploadResult eine Eigenschaft "id" enthält.
           const assetId = uploadResult.id;
-          console.log('Hochgeladene Asset-ID:', assetId);
+          console.log('Uploaded asset ID:', assetId);
 
           // 2. Asset dem Album hinzufügen
           const result = await addAssetsToAlbum(albumId, [assetId]);
-          console.log('Asset erfolgreich zum Album hinzugefügt:', result);
+          console.log('Asset added to album successfully:', result);
         } catch (error) {
-          console.error('Fehler beim Hochladen und Hinzufügen:', error.message);
+          console.error('Error uploading and adding:', error.message);
         }
       }
 
@@ -1385,14 +1518,14 @@
             try {
               const response = await fetch(`/api/livePhotoVideo?videoId=${item.livePhotoVideoId}`);
               if (!response.ok) {
-                throw new Error(`Fehler beim Laden des Live-Photo-Videos: ${item.livePhotoVideoId}`);
+                throw new Error(`Error loading live photo video: ${item.livePhotoVideoId}`);
               }
               const videoBlob = await response.blob();
               const videoUrl = URL.createObjectURL(videoBlob);
               item.livePhotoVideoUrl = videoUrl; // Speichere die lokale URL für das Video
-              console.log(`Live-Photo-Video geladen für ${item.downloadName}:`, videoUrl);
+              console.log(`Live photo video loaded for ${item.downloadName}:`, videoUrl);
             } catch (error) {
-              console.error(`Live-Photo-Video konnte nicht geladen werden: ${error.message}`);
+              console.error(`Could not load live photo video: ${error.message}`);
             }
           }
         }
@@ -1403,7 +1536,7 @@
       document.getElementById('generateIntroBtn').addEventListener('click', async () => {
         const title = document.getElementById('title').value;
         if (!title) {
-          alert("Bitte gib einen Titel ein!");
+          alert("Please enter a title!");
           return;
         }
         try {
@@ -1413,7 +1546,7 @@
             body: JSON.stringify({ title })
           });
           if (!response.ok) {
-            throw new Error('Intro-Clip konnte nicht erstellt werden');
+            throw new Error('Could not create intro clip');
           }
           const data = await response.json();
           // Neues Asset für Intro-Clip erstellen
@@ -1423,11 +1556,11 @@
             originalFileName: getBaseName(data.file),
             duration: 5000
           };
-          mediaItems.unshift(introAsset);
-          renderMediaList();
+          allMediaItems.unshift(introAsset);
+          applyMediaView();
         } catch (error) {
-          console.error('Fehler beim Intro-Clip:', error);
-          alert('Fehler: ' + error.message);
+          console.error('Intro clip error:', error);
+          alert('Error: ' + error.message);
         }
       });
 
@@ -1495,7 +1628,7 @@
               renderTimeline();
             }
           } catch (err) {
-            console.warn("Kein gültiges Drag&Drop-Element erkannt:", err);
+            console.warn("No valid drag-and-drop element recognized:", err);
           }
         }
       });
@@ -1534,34 +1667,19 @@
 
 
       async function loadVideoThumbnails() {
-  const tasks = mediaItems.map(async (item, index) => {
-    if (item.type === 'VIDEO' && !item.thumbnail) {
-      try {
-        const response = await fetch(`/api/videoThumbnail?videoName=${item.downloadName}`);
-        if (!response.ok) {
-          throw new Error(`Thumbnail konnte nicht geladen werden: ${item.downloadName}`);
-        }
-        const blob = await response.blob();
-        const thumbUrl = URL.createObjectURL(blob);
-        item.thumbnail = thumbUrl;
-        console.log(`📷 Thumbnail geladen für ${item.downloadName}:`, thumbUrl);
-
-        // DOM-Update nur, wenn das Element noch da ist
-        const img = document.querySelector(`.media-item[data-index="${index}"] img`);
-        if (img) {
-          img.src = thumbUrl;
-        }
-      } catch (error) {
-        console.error(`❌ Fehler beim Laden des Thumbnails: ${error.message}`);
+        mediaItems.forEach((item, index) => {
+          if (item.type === 'VIDEO' && !item.thumbnail && item.id) {
+            item.thumbnail = mediaPreviewUrl(item);
+            const video = document.querySelector(`.media-item[data-index="${index}"] video`);
+            if (video) {
+              video.poster = item.thumbnail;
+            }
+          }
+        });
       }
-    }
-  });
-
-  await Promise.all(tasks);
-}
 
       function addToTimeline(item) {
-        console.log("Medium zur Timeline hinzufügen:", item);
+        console.log("Adding media to timeline:", item);
 
         // Klonen des Items für die Timeline
         const newItem = { ...item };
@@ -1580,12 +1698,29 @@
 
 
 
+      function mediaPreviewUrl(item) {
+        // Prefer Immich thumbnails so the media list works without local originals.
+        if (item.id) {
+          return `/api/immich/thumbnail/${item.id}`;
+        }
+        const file = item.downloadName || item.originalFileName;
+        return file ? `/media/${file}` : '';
+      }
+
+      function mediaVideoUrl(item) {
+        if (item.id) {
+          return `/api/immich/video/${item.id}`;
+        }
+        const file = item.downloadName || item.originalFileName;
+        return file ? `/media/${file}` : '';
+      }
+
       function renderMediaList() {
         const container = document.getElementById('mediaList');
         container.innerHTML = '';
 
         mediaItems.forEach((item, index) => {
-          console.log(`Rendere Media ${index}:`, item);
+          console.log(`Rendering media ${index}:`, item);
 
           const div = document.createElement('div');
           div.className = 'media-item';
@@ -1604,24 +1739,52 @@
           if (item.type === 'IMAGE') {
             const img = document.createElement('img');
             const imageFile = item.downloadName || item.originalFileName || `temp_${String(index + 1).padStart(3, '0')}.jpg`;
-            img.src = "/media/" + imageFile;
+            img.src = mediaPreviewUrl(item);
             img.alt = imageFile;
             img.className = 'thumb';
+            img.loading = 'lazy';
             div.appendChild(img);
           } else if (item.type === 'VIDEO') {
             const videoContainer = document.createElement('div');
             videoContainer.className = 'video-wrapper';
 
             const video = document.createElement('video');
-            const videoFile = item.downloadName || item.originalFileName;
-            video.src = `/media/${videoFile}`;
-            video.className = 'video-preview';
+            video.className = 'video-preview thumb';
             video.muted = true;
             video.loop = true;
+            video.playsInline = true;
+            video.preload = 'none';
+            video.poster = mediaPreviewUrl(item);
+            video.dataset.src = mediaVideoUrl(item);
             video.style.width = '120px';
             video.style.height = 'auto';
             video.style.borderRadius = '6px';
             video.style.boxShadow = '0 0 6px rgba(0, 0, 0, 0.3)';
+
+            const ensureVideoSrc = () => {
+              if (!video.src && video.dataset.src) {
+                video.src = video.dataset.src;
+              }
+            };
+
+            video.addEventListener('loadedmetadata', () => {
+              if (video.duration && isFinite(video.duration)) {
+                item.duration = Math.round(video.duration * 1000);
+                const durationInput = div.querySelector('.duration-input');
+                if (durationInput) {
+                  durationInput.value = formatDuration(item.duration);
+                }
+              }
+            });
+
+            div.addEventListener('mouseenter', () => {
+              ensureVideoSrc();
+              video.play().catch(() => {});
+            });
+            div.addEventListener('mouseleave', () => {
+              video.pause();
+              video.currentTime = 0;
+            });
 
             videoContainer.appendChild(video);
 
@@ -1634,7 +1797,7 @@
             // 🟥 LIVE-Badge, wenn isLivePhoto gesetzt ist
             if (item.isLivePhoto) {
               const repeatLabel = document.createElement('label');
-              repeatLabel.textContent = '🔁 Wiederh.:';
+              repeatLabel.textContent = '🔁 Repeats:';
 
               const repeatInput = document.createElement('input');
               repeatInput.type = 'number';
@@ -1656,13 +1819,7 @@
             }
 
 
-            // Hover-Effekt
-            div.addEventListener('mouseenter', () => video.play());
-            div.addEventListener('mouseleave', () => {
-              video.pause();
-              video.currentTime = 0;
-            });
-
+            // Hover plays streamed Immich video (no local download)
             div.appendChild(videoContainer);
           }
 
@@ -1713,7 +1870,7 @@
       function updateTimelineDuration() {
         const durationEl = document.getElementById('timelineDuration');
         const totalMs = calculateTimelineDuration();
-        const prefix = translations["total_duration"] || "Gesamtdauer: ";
+        const prefix = translations["total_duration"] || "Total Duration: ";
         durationEl.textContent = prefix + formatMsToTime(totalMs);
       }
 
@@ -1732,16 +1889,18 @@
           });
           if (item.type === 'IMAGE') {
             const img = document.createElement('img');
-            const imageFile = item.downloadName || item.originalFileName || 'unbekannt.jpg';
-            img.src = "/media/" + imageFile;
+            const imageFile = item.downloadName || item.originalFileName || 'unknown.jpg';
+            img.src = mediaPreviewUrl(item) || ("/media/" + imageFile);
             img.className = 'thumb';
+            img.loading = 'lazy';
             div.appendChild(img);
           } else if (item.type === 'VIDEO') {
             const videoThumb = document.createElement('img');
-            const thumbSrc = item.thumbnail || `/media/${item.downloadName}`;
+            const thumbSrc = item.thumbnail || mediaPreviewUrl(item) || `/media/${item.downloadName}`;
             videoThumb.src = thumbSrc;
             videoThumb.alt = item.downloadName || 'Video';
             videoThumb.className = 'thumb';
+            videoThumb.loading = 'lazy';
             div.appendChild(videoThumb);
             const badge = document.createElement('span');
             badge.className = 'video-badge';
@@ -1901,7 +2060,7 @@
 
       function formatDuration(durationMs) {
         if (!durationMs || isNaN(durationMs)) {
-          console.warn("Ungültige Dauer gefunden, setze Standardwert 5000ms.");
+          console.warn("Invalid duration found, using default 5000ms.");
           durationMs = 5000; // Fallback auf 5 Sekunden
         }
 
@@ -1931,7 +2090,7 @@
         const index = e.target.dataset.index;
         const ms = parseDuration(e.target.value);
         if (isNaN(ms)) {
-          alert('Ungültiges Zeitformat. Bitte HH:MM:SS verwenden.');
+          alert('Invalid time format. Please use HH:MM:SS.');
           e.target.value = formatDuration(mediaItems[index].duration);
         } else {
           mediaItems[index].duration = ms;
@@ -1942,10 +2101,10 @@
         try {
           const albumId = document.getElementById('albumSelect').value;
           const response = await fetch(`/api/generateTitle?albumId=${encodeURIComponent(albumId)}`);
-          if (!response.ok) throw new Error('Fehler beim Generieren der Titel');
+          if (!response.ok) throw new Error('Error generating titles');
 
           const data = await response.json();
-          console.log("Erhaltene Titel:", data.finalTitles);
+          console.log("Received titles:", data.finalTitles);
 
           const titleSelect = document.getElementById('titleSelect');
           titleSelect.innerHTML = "";
@@ -1961,11 +2120,11 @@
           });
 
           if (allLines.length === 1) {
-            // ✅ Nur ein Titel: direkt setzen, kein Dropdown
+            // ✅ Nur ein Title: direkt setzen, kein Dropdown
             document.getElementById('title').value = allLines[0];
             titleSelect.style.display = 'none';
           } else if (allLines.length > 1) {
-            // ✅ Mehrere Titel: Dropdown anzeigen
+            // ✅ Mehrere Title: Dropdown anzeigen
             allLines.forEach(line => {
               const option = document.createElement('option');
               option.value = line;
@@ -1982,12 +2141,12 @@
               document.getElementById('title').value = e.target.value;
             });
           } else {
-            console.warn("Keine Titel erhalten.");
+            console.warn("No titles received.");
             titleSelect.style.display = 'none';
           }
 
         } catch (error) {
-          console.error('Fehler beim Titelgenerieren:', error);
+          console.error('Error generating titles:', error);
         }
       });
 
@@ -2026,9 +2185,12 @@
 
 
             return [{
+              id: item.id,
               type: item.type,
               downloadName: item.downloadName,
-              duration: item.duration
+              duration: item.duration,
+              isLivePhoto: item.isLivePhoto,
+              livePhotoVideoId: item.livePhotoVideoId
             }];
           }),
           audio: audioTimeline.map(track => ({
@@ -2044,14 +2206,24 @@
           resolution: document.getElementById('resolution').value
         };
 
-        console.log("Export-Daten:", exportData);
+        console.log("Export-Data:", exportData);
         try {
+          // Make sure timeline originals are present locally before FFmpeg runs.
+          const ensureResponse = await fetch('/api/ensureDownloads', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items: exportData.media })
+          });
+          if (!ensureResponse.ok) {
+            throw new Error('Could not load media before export');
+          }
+
           const response = await fetch('/api/export', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(exportData)
           });
-          if (!response.ok) throw new Error('Export fehlgeschlagen');
+          if (!response.ok) throw new Error('Export failed');
           const data = await response.json();
           const videoPlayer = document.getElementById('finalVideo');
           const fileName = data.file.split('/').pop();
@@ -2063,8 +2235,8 @@
           container.scrollIntoView({ behavior: 'smooth' });
           document.getElementById('videoContainer').style.display = 'block';
         } catch (error) {
-          console.error('Export-Fehler:', error);
-          alert('Beim Exportieren ist ein Fehler aufgetreten: ' + error.message);
+          console.error('Export error:', error);
+          alert('An error occurred during export: ' + error.message);
         }
       });
 
@@ -2072,7 +2244,7 @@
         const albumId = document.getElementById('uploadAlbum').value;
         const finalTitles = document.getElementById('title').value;
         if (!albumId) {
-          alert("Bitte geben Sie die Album-ID ein, in das Video hochgeladen werden soll.");
+          alert("Please enter the album ID to upload the video to.");
           return;
         }
         try {
@@ -2082,14 +2254,14 @@
             body: JSON.stringify({ albumId, title: finalTitles }) // Korrekte Struktur
           });
           if (!response.ok) {
-            throw new Error('Upload fehlgeschlagen');
+            throw new Error('Upload failed');
           }
           const data = await response.json();
-          alert('Finales Video erfolgreich hochgeladen und dem Album hinzugefügt!');
-          console.log('Upload-Ergebnis:', data);
+          alert('Final video uploaded and added to the album successfully!');
+          console.log('Upload result:', data);
         } catch (error) {
-          console.error('Fehler beim finalen Video-Upload:', error);
-          alert('Fehler: ' + error.message);
+          console.error('Error uploading final video:', error);
+          alert('Error: ' + error.message);
         }
       });
 
@@ -2141,9 +2313,9 @@ function randomMusicSearch() {
 
 async function searchTopTracks() {
   const resultsContainer = document.getElementById('ccmixterResults');
-  resultsContainer.innerHTML = '<p>🔍 Suche beliebte Songs…</p>';
+  resultsContainer.innerHTML = '<p>🔍 Searching popular songs…</p>';
 
-  const url = `https://api.jamendo.com/v3.0/tracks/?client_id=${JAMENDO_CLIENT_ID}&format=json&limit=10&order=popularity_total&audioformat=mp31`;
+  const url = `https://api.jamendo.com/v3.0/tracks/?client_id=${JAMENDO_CLIENT_ID}&format=json&liwith=10&order=popularity_total&audioformat=mp31`;
   const res = await fetch(url);
   const json = await res.json();
   displayTracks(json.results);
@@ -2158,7 +2330,7 @@ function displayTracks(tracks) {
     div.innerHTML = `
       <div><strong>${track.name}</strong> – ${track.artist_name}</div>
       <audio controls src="${track.audio}" style="width: 100%; margin-top: 4px;"></audio>
-      <small>Lizenz: <a href="${track.license_ccurl}" target="_blank">${track.license_ccurl}</a></small>
+      <small>License: <a href="${track.license_ccurl}" target="_blank">${track.license_ccurl}</a></small>
     `;
     resultsContainer.appendChild(div);
   });
@@ -2217,21 +2389,41 @@ function displayTracks(tracks) {
         const previewFrame = document.getElementById('previewFrame');
 
         if (current.type === 'IMAGE') {
-          previewFrame.src = `/media/${current.downloadName}`;
+          previewFrame.src = current.id
+            ? `/api/immich/thumbnail/${current.id}`
+            : `/media/${current.downloadName}`;
           previewFrame.style.display = 'block';
         } else if (current.type === 'VIDEO') {
+          const videoSrc = current.id
+            ? `/api/immich/video/${current.id}`
+            : `/media/${current.downloadName}`;
           const tempVideo = document.createElement('video');
-          tempVideo.src = `/media/${current.downloadName}`;
+          tempVideo.src = videoSrc;
           tempVideo.muted = true;
-          tempVideo.currentTime = offset / 1000;
+          tempVideo.preload = 'metadata';
 
+          const seekTo = () => {
+            try {
+              tempVideo.currentTime = Math.max(0, offset / 1000);
+            } catch (_) {}
+          };
+
+          tempVideo.addEventListener('loadedmetadata', seekTo, { once: true });
           tempVideo.addEventListener('seeked', () => {
             const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = tempVideo.videoWidth;
-            tempCanvas.height = tempVideo.videoHeight;
+            tempCanvas.width = tempVideo.videoWidth || 320;
+            tempCanvas.height = tempVideo.videoHeight || 180;
             const tempCtx = tempCanvas.getContext('2d');
             tempCtx.drawImage(tempVideo, 0, 0, tempCanvas.width, tempCanvas.height);
             previewFrame.src = tempCanvas.toDataURL('image/jpeg');
+            previewFrame.style.display = 'block';
+          }, { once: true });
+
+          // Fallback thumbnail if stream fails
+          tempVideo.addEventListener('error', () => {
+            previewFrame.src = current.id
+              ? `/api/immich/thumbnail/${current.id}`
+              : `/media/${current.downloadName}`;
             previewFrame.style.display = 'block';
           }, { once: true });
         }
@@ -2290,9 +2482,9 @@ function displayTracks(tracks) {
               if (option) {
                 select.value = albumId;
                 select.dispatchEvent(new Event("change"));
-                console.log("✅ Album automatisch ausgewählt:", albumId);
+                console.log("✅ Album auto-selected:", albumId);
               } else {
-                console.warn("⚠️ Album-ID nicht in Liste gefunden:", albumId);
+                console.warn("⚠️ Album ID not found in list:", albumId);
               }
               clearInterval(waitForAlbum);
             }
@@ -2315,9 +2507,9 @@ window.addEventListener("DOMContentLoaded", () => {
         if (option) {
           select.value = albumId;
           select.dispatchEvent(new Event("change"));
-          console.log("✅ Album automatisch ausgewählt:", albumId);
+          console.log("✅ Album auto-selected:", albumId);
         } else {
-          console.warn("⚠️ Album-ID nicht in Liste gefunden:", albumId);
+          console.warn("⚠️ Album ID not found in list:", albumId);
         }
         clearInterval(waitForAlbum);
       }

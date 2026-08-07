@@ -9,7 +9,7 @@ function getImageRotation(inputPath) {
     const result = parser.parse();
     return result.tags.Orientation || 1; // Standard: normal
   } catch (err) {
-    console.error('EXIF-Fehler:', err.message);
+    console.error('EXIF error:', err.message);
     return 1; // Fallback auf normal
   }
 }
@@ -19,7 +19,7 @@ async function checkNVENC() {
   return new Promise((resolve) => {
     exec("ffmpeg -encoders | grep nvenc", (error, stdout) => {
       if (error || !stdout.includes("h264_nvenc")) {
-        console.warn("⚠ NVENC nicht verfügbar! Wechsel auf libx264.");
+        console.warn("⚠ NVENC not available! Falling back to libx264.");
         resolve(false);
       } else {
         resolve(true);
@@ -44,7 +44,7 @@ exports.processImageWithDuration = async (input, output, duration) => {
     // Bildverarbeitung: Skalierung, Padding & Farbraum-Fix
     const videoFilter = `${rotateFilter}scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,format=yuv420p`;
 
-    console.log(`📷 Verarbeite Bild ${input} -> ${output} mit ${encoder}`);
+    console.log(`📷 Processing image ${input} -> ${output} with ${encoder}`);
 
     return runFFmpegCommand(input, output, {
       inputOptions: ['-loop', '1', '-noautorotate'],
@@ -57,7 +57,7 @@ exports.processImageWithDuration = async (input, output, duration) => {
     });
 
   } catch (error) {
-    console.error("❌ Fehler beim Bild-Rendering:", error);
+    console.error("❌ Error rendering image:", error);
     throw error;
   }
 };

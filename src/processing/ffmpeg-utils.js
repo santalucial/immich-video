@@ -34,17 +34,17 @@ function runFFmpegCommand(inputPath, outputPath, options = {}) {
     command
       .save(outputPath)
       .on('start', (commandLine) => {
-        console.log(`FFmpeg startet: ${commandLine}`);
+        console.log(`FFmpeg starting: ${commandLine}`);
       })
       .on('progress', (progress) => {
-        console.log(`Fortschritt: ${Math.round(progress.percent || 0)}%`);
+        console.log(`Progress: ${Math.round(progress.percent || 0)}%`);
       })
       .on('end', () => {
-        console.log(`FFmpeg erfolgreich: ${outputPath}`);
+        console.log(`FFmpeg succeeded: ${outputPath}`);
         resolve();
       })
       .on('error', (err, stdout, stderr) => {
-        console.error(`FFmpeg Fehler: ${err.message}`);
+        console.error(`FFmpeg error: ${err.message}`);
         console.error(`FFmpeg stderr: ${stderr}`);
         reject(err);
       });

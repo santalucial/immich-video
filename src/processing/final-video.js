@@ -81,13 +81,13 @@ async function processVideo(inputPath, outputPath) {
         '-b:a', '192k',
         '-shortest'
       ])
-      .on('start', commandLine => console.log(`FFmpeg startet (Video): ${commandLine}`))
+      .on('start', commandLine => console.log(`FFmpeg starting (video): ${commandLine}`))
       .on('end', () => {
-        console.log(`✅ Video erfolgreich verarbeitet: ${outputPath}`);
+        console.log(`✅ Video processed successfully: ${outputPath}`);
         resolve();
       })
       .on('error', err => {
-        console.error(`❌ Fehler beim Verarbeiten des Videos: ${err.message}`);
+        console.error(`❌ Error processing video: ${err.message}`);
         reject(err);
       })
       .save(outputPath);
@@ -96,7 +96,7 @@ async function processVideo(inputPath, outputPath) {
 
 async function generateFinalVideo(options, outputPath, progressCallback = () => {}) {
   try {
-    if (!options || !options.media) throw new Error('Export-Optionen ungültig: media fehlt.');
+    if (!options || !options.media) throw new Error('Invalid export options: media is missing.');
 
     
 
@@ -104,8 +104,8 @@ const timelineAssets = options.media;
 const mediaFolder = path.join(__dirname, '../../medien');
 const tempFolder = path.join(__dirname, '../../temp');
 if (!fs.existsSync(tempFolder)) fs.mkdirSync(tempFolder, { recursive: true });
-progressCallback(`🚀 Starte Videoexport: "${options.title || 'Untitled'}"`);
-progressCallback(`🎞️ Medienanzahl: ${timelineAssets.length}`);
+progressCallback(`🚀 Starting video export: "${options.title || 'Untitled'}"`);
+progressCallback(`🎞️ Media count: ${timelineAssets.length}`);
 const processedClips = [];
 const transitions = [];
 let videoIndex = 0;
@@ -117,7 +117,7 @@ for (let i = 0; i < timelineAssets.length; i++) {
       transition: asset.transition || 'fade',
       duration: (asset.duration || 1000) / 1000
     });
-    progressCallback(`🔁 Übergang hinzugefügt: "${asset.transition}" @ Position ${i}`);
+    progressCallback(`🔁 Transition added: "${asset.transition}" @ Position ${i}`);
     continue;
   }
 
@@ -129,14 +129,14 @@ for (let i = 0; i < timelineAssets.length; i++) {
   const durationMs = asset.duration || 5000;
   const durationSec = durationMs / 1000;
 
-  progressCallback(`⚙️ Verarbeite Clip ${videoIndex + 1}: ${asset.downloadName}`);
+  progressCallback(`⚙️ Processing clip ${videoIndex + 1}: ${asset.downloadName}`);
 
   if (asset.type === 'IMAGE') {
     await processImageWithDuration(inputPath, clipOutput, durationSec);
-    progressCallback(`🖼️ Bild umgewandelt: ${asset.downloadName}`);
+    progressCallback(`🖼️ Image converted: ${asset.downloadName}`);
   } else {
     await processVideo(inputPath, clipOutput);
-    progressCallback(`🎞️ Video verarbeitet: ${asset.downloadName}`);
+    progressCallback(`🎞️ Video processed: ${asset.downloadName}`);
   }
 
   const clipWithAudio = ensureAudioTrack(clipOutput);
@@ -148,15 +148,15 @@ for (let i = 0; i < timelineAssets.length; i++) {
     hasAudio: true
   });
 
-  progressCallback(`📦 Clip gespeichert (${videoIndex + 1}/${timelineAssets.length}): ${asset.downloadName}`);
+  progressCallback(`📦 Clip saved (${videoIndex + 1}/${timelineAssets.length}): ${asset.downloadName}`);
   videoIndex++;
 }
 
 if (processedClips.length === 0) {
-  throw new Error('❌ Keine Clips vorhanden – Video kann nicht erstellt werden.');
+  throw new Error('❌ No clips available – cannot create video.');
 }
 
-progressCallback(`🧰 Übergänge werden angewendet…`);
+progressCallback(`🧰 Applying transitions…`);
 await createFinalVideoWithTransitions(processedClips, outputPath, transitions, options.audio);
 
 
@@ -166,33 +166,33 @@ if (Array.isArray(options.audio) && options.audio.length > 0 && options.audio[0]
   const audioTempPath = path.join(tempFolder, 'temp_audio.mp3');
   const mixedOutputPath = outputPath.replace('.mp4', '_mixed.mp4');
 
-  progressCallback(`🎵 Lade Audio von ${audioUrl}`);
+  progressCallback(`🎵 Loading audio from ${audioUrl}`);
   execSync(`curl -L "${audioUrl}" -o "${audioTempPath}"`);
 
   const ffmpegCmd = `ffmpeg -i "${outputPath}" -i "${audioTempPath}" \
 -filter_complex "[1:a]volume=0.09[aquiet];[0:a][aquiet]amix=inputs=2:duration=first:dropout_transition=3[aout]" \
 -map 0:v -map "[aout]" -c:v copy -c:a aac -shortest -y "${mixedOutputPath}"`;
 
-  progressCallback(`🎚️ Mische finalen Audio-Track…`);
+  progressCallback(`🎚️ Mixing final audio track…`);
   execSync(ffmpegCmd, { stdio: 'inherit' });
 
   fs.renameSync(mixedOutputPath, outputPath);
-  progressCallback(`✅ Finaler Audiomix abgeschlossen: ${outputPath}`);
+  progressCallback(`✅ Final audio mix complete: ${outputPath}`);
 } else {
-  progressCallback(`🎧 Kein zusätzlicher Audiotrack – Audio bleibt wie im Clip.`);
+  progressCallback(`🎧 No additional audio track – keeping clip audio.`);
 }
 
 
 
-  progressCallback(`✅ Export abgeschlossen: ${outputPath}`);
+  progressCallback(`✅ Export complete: ${outputPath}`);
 
 
-progressCallback(`🧹 Aufräumen abgeschlossen.`);
+progressCallback(`🧹 Cleanup finished.`);
 return outputPath;
 
 
   } catch (error) {
-    console.error("❌ Fehler in generateFinalVideo:", error);
+    console.error("❌ Error in generateFinalVideo:", error);
     throw error;
   }
   
@@ -204,7 +204,7 @@ function cleanUnusedMedia(usedFiles = []) {
   const validExt = ['.jpg', '.jpeg', '.png', '.mp4', '.mov'];
 
   fs.readdir(mediaDir, (err, files) => {
-    if (err) return console.error('Fehler beim Lesen des Medien-Ordners:', err);
+    if (err) return console.error('Error reading media folder:', err);
 
     files.forEach(file => {
       const ext = path.extname(file).toLowerCase();
@@ -213,8 +213,8 @@ function cleanUnusedMedia(usedFiles = []) {
       if (!whitelist.has(file)) {
         const fullPath = path.join(mediaDir, file);
         fs.unlink(fullPath, err => {
-          if (err) console.error(`❌ Konnte ${file} nicht löschen:`, err);
-          else console.log(`🗑️ Nicht verwendete Datei gelöscht: ${file}`);
+          if (err) console.error(`❌ Could not delete ${file}:`, err);
+          else console.log(`🗑️ Deleted unused file: ${file}`);
         });
       }
     });
@@ -234,7 +234,7 @@ function cleanAllMediaFiles() {
     const fullPath = path.resolve(__dirname, dir);
 
     fs.readdir(fullPath, (err, files) => {
-      if (err) return console.error(`❌ Fehler beim Lesen von ${fullPath}:`, err);
+      if (err) return console.error(`❌ Error reading ${fullPath}:`, err);
 
       files.forEach(file => {
         const ext = path.extname(file).toLowerCase();
@@ -242,8 +242,8 @@ function cleanAllMediaFiles() {
 
         const filePath = path.join(fullPath, file);
         fs.unlink(filePath, err => {
-          if (err) console.error(`❌ Konnte ${filePath} nicht löschen:`, err);
-          else console.log(`🧹 Gelöscht: ${filePath}`);
+          if (err) console.error(`❌ Could not delete ${filePath}:`, err);
+          else console.log(`🧹 Deleted: ${filePath}`);
         });
       });
     });
@@ -275,7 +275,7 @@ const filterParts = [];
   let accumulatedOffset = 0;
 
   if (!Array.isArray(mediaFiles) || mediaFiles.length <= 1) {
-    console.log("⚠️ Zu wenig Clips für Übergänge. Kein FilterGraph nötig.");
+    console.log("⚠️ Too few clips for transitions. No filter graph needed.");
     fs.copyFileSync(mediaFiles[0].clipOutput, outputPath);
     return;
   }
@@ -287,7 +287,7 @@ const filterParts = [];
     fs.writeFileSync(concatListPath, concatList);
   
     const ffmpegConcatCmd = `ffmpeg -f concat -safe 0 -i "${concatListPath}" -vsync 2 -c:v libx264 -preset fast -crf 23 -c:a aac -b:a 192k -y "${outputPath}"`;
-    console.log('[createFinalVideoWithTransitions] FFmpeg Concat (ohne Übergänge):\n' + ffmpegConcatCmd);
+    console.log('[createFinalVideoWithTransitions] FFmpeg concat (no transitions):\n' + ffmpegConcatCmd);
     execSync(ffmpegConcatCmd, { stdio: 'inherit' });
   
     return;
@@ -347,12 +347,12 @@ const ffmpegCommand = `ffmpeg ${inputArgs} -filter_complex "${filterComplex}" -m
       try {
         fs.unlinkSync(path.join(tempDir, file));
       } catch (err) {
-        console.warn(`⚠️ Fehler beim Löschen von ${file}`);
+        console.warn(`⚠️ Error deleting ${file}`);
       }
     }
   });
 
-  console.log('✅ Export abgeschlossen:', outputPath);
+  console.log('✅ Export complete:', outputPath);
 }
 
 

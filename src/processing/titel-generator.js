@@ -30,25 +30,25 @@ async function generateTitleOnly(albumId) {
   for (const file of downloadedFiles) {
     try {
       const caption = await getImageCaptionLocal(file);
-      console.log(`Caption für ${file}:`, caption);
+      console.log(`Caption for ${file}:`, caption);
       captions.push(caption);
     } catch (error) {
-      console.error(`Fehler beim Erstellen der Caption für ${file}: ${error.message}`);
+      console.error(`Error creating caption for ${file}: ${error.message}`);
     }
   }
 
   const combinedCaption = captions.join(', ');
 
   const prompt = `
-Der bestehende Albumname ist "${albumName}".
-Bitte erstelle nun kreative, kurze deutsche Albumnamen, 
-die sowohl diesen Namen als Inspiration als auch folgende Bildbeschreibungen berücksichtigen:
+The existing album name is "${albumName}".
+Please create creative, short English album titles
+that use this name as inspiration and also consider the following image captions:
 
-Bildbeschreibungen:
+Image captions:
 ${combinedCaption}
   `;
 
-  console.log('🧠 LLM Prompt (lokal):', prompt);
+  console.log('🧠 LLM prompt (local):', prompt);
 
   const ollamaEndpoint = process.env.OLLAMA_ENDPOINT;
 
@@ -58,7 +58,7 @@ ${combinedCaption}
       {
         model: process.env.OLLAMA_MODEL,
         messages: [
-          { role: 'system', content: 'Du bist ein kreativer Generator für deutsche Fotoalbumtitel.' },
+          { role: 'system', content: 'You are a creative generator of English photo album titles.' },
           { role: 'user', content: prompt }
         ],
         stream: false
@@ -71,11 +71,11 @@ ${combinedCaption}
     );
 
     const content = response.data.message.content.trim();
-    console.log('✅ Generierter Titel (Ollama):', content);
+    console.log('✅ Generated title (Ollama):', content);
     return [content];
     
   } catch (error) {
-    console.error('❌ Fehler bei Ollama-Request:', error.message);
+    console.error('❌ Ollama request error:', error.message);
     return [albumName + ' – ' + combinedCaption];
   }
   
@@ -86,7 +86,7 @@ async function generateMusicTagsOnly(albumId) {
   const albumName = album.albumName || "Album";
 
   const imageAssets = album.assets.filter(asset => asset.type === "IMAGE");
-  if (imageAssets.length === 0) return ['ruhig', 'emotional'];
+  if (imageAssets.length === 0) return ['calm', 'emotional'];
 
   const mediaFolder = path.join(__dirname, 'medien');
   if (!fs.existsSync(mediaFolder)) fs.mkdirSync(mediaFolder);
@@ -104,39 +104,39 @@ async function generateMusicTagsOnly(albumId) {
       const caption = await getImageCaptionLocal(file);
       captions.push(caption);
     } catch (err) {
-      console.error(`❌ Fehler bei Bildbeschreibung (${file}):`, err.message);
+      console.error(`❌ Error describing image (${file}):`, err.message);
     }
   }
 
   const prompt = `
-Bitte nenne mir 3 bis 6 englische Musik-Suchbegriffe (Genres oder Stimmungen), 
-die gut zu folgendem visuellen Eindruck passen – basierend auf diesen Bildbeschreibungen:
-Keine ganzen Sätze, nur Schlagworte. Schreibe sie komma-getrennt.
+Please give me 3 to 6 English music search terms (genres or moods)
+that fit the following visual impression based on these image captions:
+No full sentences, only keywords. Write them comma-separated.
 
-Bildbeschreibungen:
+Image captions:
 ${captions.join(', ')}
 `;
 
-  console.log('🎼 Prompt für Musik-Tags:', prompt);
+  console.log('🎼 Music tags prompt:', prompt);
 
   try {
     
     const response = await axios.post(process.env.OLLAMA_ENDPOINT, {
       model: process.env.OLLAMA_MODEL,
       messages: [
-        { role: 'system', content: 'Du bist Experte für Musik-Genres und wählst passende Tags für Hintergrundmusik aus Bildern.' },
+        { role: 'system', content: 'You are an expert in music genres and choose fitting tags for background music from images.' },
         { role: 'user', content: prompt }
       ],
       stream: false
     });
 
     const result = response.data.message.content.trim();
-    console.log('🎶 Musik-Tags:', result);
+    console.log('🎶 Music tags:', result);
     return result.split(',').map(t => t.trim()).filter(Boolean);
 
   } catch (err) {
-    console.error('❌ Fehler beim LLM-Request für Musik-Tags:', err.message);
-    return ['emotional', 'piano', 'ruhig'];
+    console.error('❌ LLM request error for music tags:', err.message);
+    return ['emotional', 'piano', 'calm'];
   }
 }
 

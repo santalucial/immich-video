@@ -9,7 +9,7 @@ const generateThumbnail = (videoPath, outputFolder) => {
 
         // Falls Thumbnail bereits existiert, nicht nochmal generieren
         if (fs.existsSync(outputFilePath)) {
-            console.log(`Thumbnail existiert bereits: ${outputFilePath}`);
+            console.log(`Thumbnail already exists: ${outputFilePath}`);
             return resolve(outputFilePath);
         }
 
@@ -18,10 +18,10 @@ const generateThumbnail = (videoPath, outputFolder) => {
 
         exec(command, (error) => {
             if (error) {
-                console.error("Fehler beim Generieren des Thumbnails:", error);
+                console.error("Error generating thumbnail:", error);
                 return reject(error);
             }
-            console.log(`Thumbnail erstellt: ${outputFilePath}`);
+            console.log(`Thumbnail created: ${outputFilePath}`);
             resolve(outputFilePath);
         });
     });

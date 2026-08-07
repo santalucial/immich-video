@@ -8,15 +8,15 @@ const tempFolder = path.join(__dirname, '../../temp');
 
 
 async function createIntroClip(albumTitle, outputPath) {
-  console.log(`Erstelle Intro-Clip für "${albumTitle}" nach ${outputPath}`);
-  // Hole das aktuelle Datum im deutschen Format
-  const currentDate = new Date().toLocaleDateString('de-DE');
+  console.log(`Creating intro clip for "${albumTitle}" to ${outputPath}`);
+  // Get the current date in English format
+  const currentDate = new Date().toLocaleDateString('en-US');
 
   // Finde eine passende Schriftart auf dem System
   const fontPath = await findSystemFont();
-  console.log(`Verwende Schriftart: ${fontPath}`);
+  console.log(`Using font: ${fontPath}`);
 
-  // Baue den Text mit echten Zeilenumbrüchen: Titel und Datum
+  // Build text with real line breaks: title and date
   const multilineText = `${albumTitle}\n${currentDate}`;
 
   // Lege eine temporäre Textdatei an, die den Text enthält
@@ -24,14 +24,14 @@ async function createIntroClip(albumTitle, outputPath) {
   fs.writeFileSync(textFilePath, multilineText, 'utf8');
 
   try {
-    // FFmpeg mit dem "color" Filter als Input erzeugt einen schwarzen Hintergrund
+    // FFmpeg with the "color" filter as input creates a black background
     // und der drawtext-Filter fügt den Text aus der Textdatei ein.
     await runFFmpegCommand('color=c=black:s=1920x1080:d=5:r=25', outputPath, {
       inputOptions: ['-f', 'lavfi'],
       videoCodec: 'h264_nvenc',
       outputOptions: [
         '-vf',
-        // Wichtig: Nutze drawtext mit textfile=..., nicht text=...
+        // Wichtig: Use drawtext with textfile=..., not text=...
         `drawtext=fontfile=${fontPath}:textfile='${textFilePath}':fontcolor=white:fontsize=48:line_spacing=50:x=(w-text_w)/2:y=(h-text_h)/2,fade=t=in:st=0:d=1,fade=t=out:st=4:d=1`,
         '-pix_fmt', 'yuv420p',
         '-r', '25',
@@ -41,9 +41,9 @@ async function createIntroClip(albumTitle, outputPath) {
       format: 'mp4'
     });
 
-    console.log(`Intro-Clip erfolgreich erstellt: ${outputPath}`);
+    console.log(`Intro clip created successfully: ${outputPath}`);
   } catch (error) {
-    console.error(`Fehler beim Erstellen des Intro-Clips: ${error.message}`);
+    console.error(`Error creating intro clip: ${error.message}`);
     throw error;
   }
 }
