@@ -32,6 +32,12 @@ Media can be easily arranged in an intuitive drag-and-drop timeline.
 - Set in-point (start) and duration on video clips in the timeline
 - Export applies FFmpeg `-ss` / `-t` so only the selected range is rendered
 
+### 🔄 Per-Clip Rotation & Volume
+- Rotate any image or video clip by 0° / 90° / 180° / 270° from the clip inspector
+- Override a video clip’s audio level (0–100%; default 100%) independently of `VIDEO_AUDIO_BOOST`
+- Set video playback speed (0.25×–4×); timeline duration is output length, source is consumed accordingly
+- Settings persist with the project and apply on export (preview reflects them)
+
 ### 🔀 Dynamic Transition Effects
 - Supported transitions: `fade`, `wipeleft`, `slideright`, `circleopen`, `circleclose`, `pixelize`
 - Transition duration and timing are automatically calculated based on actual clip lengths
@@ -148,6 +154,12 @@ Die Übersetzungen liegen im Verzeichnis:
 ### ✂️ Video-Zuschnitt
 - Startpunkt und Dauer für Videoclips direkt in der Timeline setzen
 - Export wendet FFmpeg `-ss` / `-t` an und rendert nur den gewählten Ausschnitt
+
+### 🔄 Clip-Drehung & Lautstärke
+- Beliebigen Bild- oder Videoclip im Inspector um 0° / 90° / 180° / 270° drehen
+- Lautstärke eines Videoclips unabhängig von `VIDEO_AUDIO_BOOST` überschreiben (0–100 %, Standard 100 %)
+- Wiedergabegeschwindigkeit für Videos setzen (0,25×–4×); Timeline-Dauer = Ausgabelänge, Quelle wird entsprechend verbraucht
+- Einstellungen bleiben im Projekt erhalten und greifen beim Export (auch in der Vorschau sichtbar)
 
 ### 🔀 Dynamische Übergangseffekte
 - Unterstützte Effekte: `fade`, `wipeleft`, `slideright`, `circleopen`, `circleclose`, `pixelize`

@@ -7,8 +7,10 @@ require('dotenv').config();
 
 const IMMICH_API = process.env.IMMICH_API;  // z.B. "http://192.168.3.108:2283/api"
 const API_KEY = process.env.IMMICH_API_KEY;  // Dein API-Key
-const DOWNLOAD_TIMEOUT_MS = Number(process.env.IMMICH_DOWNLOAD_TIMEOUT_MS) || 60000;
+// Large originals over a remote Immich host often exceed 60s; truncated files then look "present".
+const DOWNLOAD_TIMEOUT_MS = Number(process.env.IMMICH_DOWNLOAD_TIMEOUT_MS) || 10 * 60 * 1000;
 const DOWNLOAD_CONCURRENCY = Number(process.env.IMMICH_DOWNLOAD_CONCURRENCY) || 4;
+const VIDEO_EXTS = new Set(['.mov', '.mp4', '.m4v', '.webm', '.mkv', '.avi', '.3gp']);
 
 console.log("IMMICH_API:", IMMICH_API);
 console.log("IMMICH_API_KEY configured:", Boolean(API_KEY));
@@ -29,10 +31,68 @@ async function mapWithConcurrency(items, concurrency, worker) {
     return results;
 }
 
-/** True when path exists and has content (0-byte stubs from failed downloads are not usable). */
+function isVideoPath(filePath) {
+    return VIDEO_EXTS.has(path.extname(filePath).toLowerCase());
+}
+
+/**
+ * Walk ISO BMFF / QuickTime atoms. Truncated downloads usually claim an mdat size
+ * larger than the file and never reach a moov atom — FFmpeg then fails with
+ * "moov atom not found" / "Invalid data found when processing input".
+ */
+function isValidMp4LikeContainer(filePath) {
+    let fd;
+    try {
+        fd = fs.openSync(filePath, 'r');
+        const fileSize = fs.fstatSync(fd).size;
+        if (fileSize < 16) return false;
+
+        const header = Buffer.alloc(16);
+        let offset = 0;
+        let sawMoov = false;
+
+        while (offset + 8 <= fileSize) {
+            fs.readSync(fd, header, 0, 8, offset);
+            let atomSize = header.readUInt32BE(0);
+            const type = header.toString('ascii', 4, 8);
+            let headerLen = 8;
+
+            if (atomSize === 1) {
+                if (offset + 16 > fileSize) return false;
+                fs.readSync(fd, header, 8, 8, offset + 8);
+                atomSize = Number(header.readBigUInt64BE(8));
+                headerLen = 16;
+            } else if (atomSize === 0) {
+                atomSize = fileSize - offset;
+            }
+
+            if (!Number.isFinite(atomSize) || atomSize < headerLen) return false;
+            if (offset + atomSize > fileSize) return false;
+
+            if (type === 'moov') sawMoov = true;
+            offset += atomSize;
+        }
+
+        return sawMoov && offset === fileSize;
+    } catch {
+        return false;
+    } finally {
+        if (fd != null) {
+            try { fs.closeSync(fd); } catch { /* ignore */ }
+        }
+    }
+}
+
+/** True when path exists, has content, and (for video) is a complete container. */
 function isUsableLocalFile(filePath) {
     try {
-        return fs.existsSync(filePath) && fs.statSync(filePath).size > 0;
+        if (!fs.existsSync(filePath)) return false;
+        const size = fs.statSync(filePath).size;
+        if (size <= 0) return false;
+        if (isVideoPath(filePath) && !isValidMp4LikeContainer(filePath)) {
+            return false;
+        }
+        return true;
     } catch {
         return false;
     }
@@ -48,7 +108,7 @@ function removeIfExists(filePath) {
 
 /**
  * Stream Immich original to disk atomically (temp + rename).
- * Rejects empty responses so we never leave 0-byte placeholders that skip future downloads.
+ * Rejects empty/truncated responses so corrupt stubs never skip future downloads.
  */
 async function streamDownloadToFile(url, savePath) {
     const dir = path.dirname(savePath);
@@ -62,20 +122,38 @@ async function streamDownloadToFile(url, savePath) {
             headers: { 'x-api-key': API_KEY },
             responseType: 'stream',
             timeout: DOWNLOAD_TIMEOUT_MS,
+            maxContentLength: Infinity,
+            maxBodyLength: Infinity,
         });
 
+        const expectedLength = Number(response.headers['content-length']);
         const writer = fs.createWriteStream(tempPath);
         response.data.pipe(writer);
 
         await new Promise((resolve, reject) => {
+            const fail = (err) => {
+                response.data.destroy();
+                writer.destroy();
+                reject(err);
+            };
             writer.on('finish', resolve);
-            writer.on('error', reject);
-            response.data.on('error', reject);
+            writer.on('error', fail);
+            response.data.on('error', fail);
         });
 
         const size = fs.statSync(tempPath).size;
         if (size <= 0) {
             throw new Error(`Downloaded empty file from ${url}`);
+        }
+        if (Number.isFinite(expectedLength) && expectedLength > 0 && size !== expectedLength) {
+            throw new Error(
+                `Truncated download for ${path.basename(savePath)}: got ${size} bytes, expected ${expectedLength}`
+            );
+        }
+        if (isVideoPath(savePath) && !isValidMp4LikeContainer(tempPath)) {
+            throw new Error(
+                `Downloaded incomplete/corrupt video ${path.basename(savePath)} (missing moov / truncated mdat)`
+            );
         }
 
         removeIfExists(savePath);
@@ -121,6 +199,8 @@ async function fetchAlbumAssets(albumId) {
 }
 
 module.exports = {
+    isUsableLocalFile,
+
     // Abrufen eines Albums anhand der übergebenen Album-ID
     fetchAlbum: async (albumId) => {
         if (!albumId) {

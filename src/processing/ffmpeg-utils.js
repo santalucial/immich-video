@@ -43,6 +43,15 @@ ffmpeg.setFfprobePath(FFPROBE_PATH);
 function runFFmpegCommand(inputPath, outputPath, options = {}) {
   return new Promise((resolve, reject) => {
     const command = inputPath ? ffmpeg(inputPath) : ffmpeg();
+    let settled = false;
+    let timeoutId = null;
+
+    const settle = (fn) => (value) => {
+      if (settled) return;
+      settled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+      fn(value);
+    };
 
     if (options.inputOptions) {
       command.inputOptions(options.inputOptions);
@@ -68,6 +77,17 @@ function runFFmpegCommand(inputPath, outputPath, options = {}) {
       command.outputOptions(options.outputOptions);
     }
 
+    if (options.timeoutMs && options.timeoutMs > 0) {
+      timeoutId = setTimeout(() => {
+        try {
+          command.kill('SIGKILL');
+        } catch {
+          /* ignore */
+        }
+        settle(reject)(new Error(`FFmpeg timed out after ${options.timeoutMs}ms: ${outputPath}`));
+      }, options.timeoutMs);
+    }
+
     command
       .save(outputPath)
       .on('start', (commandLine) => {
@@ -78,12 +98,13 @@ function runFFmpegCommand(inputPath, outputPath, options = {}) {
       })
       .on('end', () => {
         console.log(`FFmpeg succeeded: ${outputPath}`);
-        resolve();
+        settle(resolve)();
       })
       .on('error', (err, stdout, stderr) => {
+        if (settled) return;
         console.error(`FFmpeg error: ${err.message}`);
         console.error(`FFmpeg stderr: ${stderr}`);
-        reject(err);
+        settle(reject)(err);
       });
   });
 }

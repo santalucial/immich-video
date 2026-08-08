@@ -145,7 +145,13 @@ console.log("Media path:", mediaPath);
 
 const outputPath = path.join(__dirname, '../public/output');
 if (!fs.existsSync(outputPath)) fs.mkdirSync(outputPath, { recursive: true });
-app.use('/output', express.static(outputPath));
+app.use('/output', express.static(outputPath, {
+  // Avoid stale Range requests against a file rewritten mid-export (send throws 416).
+  acceptRanges: true,
+  setHeaders(res) {
+    res.setHeader('Cache-Control', 'no-store');
+  },
+}));
 console.log("Output path:", outputPath);
 
 // CORS
@@ -700,6 +706,18 @@ app.delete('/api/projects/:name', (req, res) => {
     console.error('DELETE /api/projects/:name - error:', error);
     res.status(500).json({ error: error.message });
   }
+});
+
+// send/express.static can throw RangeNotSatisfiableError when the browser
+// still has an old Content-Length after export rewrites the output file.
+app.use((err, req, res, next) => {
+  const status = err.status || err.statusCode;
+  if (status === 416) {
+    console.warn('Range not satisfiable (stale output seek):', req.url);
+    if (!res.headersSent) res.status(416).end();
+    return;
+  }
+  next(err);
 });
 
 // Listen on :: (dual-stack when available) so both localhost (::1) and 127.0.0.1 work.

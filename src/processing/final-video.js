@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const ffmpeg = require('fluent-ffmpeg');
 const { runFFmpegCommand, FFMPEG_PATH, FFPROBE_PATH } = require('./ffmpeg-utils');
-const { processImageWithDuration } = require('./ffmpeg');
+const { processImageWithDuration, manualRotationFilter } = require('./ffmpeg');
 const { spawn, execSync, exec } = require('child_process');
 const LIVE_REPEAT_COUNT = process.env.LIVE_REPEAT_COUNT || 5;
 const CLIP_CONCURRENCY = Math.max(1, parseInt(process.env.CLIP_CONCURRENCY || '2', 10));
@@ -91,9 +91,62 @@ function ensureAudioTrack(filePath) {
 }
 
 
-async function processVideo(inputPath, outputPath, { trimStartSec = 0, durationSec } = {}) {
+/** Per-clip volume 0–1. Accepts fraction (0.5) or percent (50). Default 1 (unchanged). */
+function parseClipVolume(raw, fallback = 1) {
+  if (raw == null || raw === '') return fallback;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0) return fallback;
+  if (n > 1) return Math.min(1, n / 100);
+  return n;
+}
+
+function buildVideoFilter(rotationDegrees = 0, speed = 1) {
+  const parts = [];
+  const rotate = manualRotationFilter(rotationDegrees);
+  if (rotate) parts.push(rotate);
+  parts.push('scale=1920:1080:force_original_aspect_ratio=decrease');
+  parts.push('pad=1920:1080:(ow-iw)/2:(oh-ih)/2');
+  parts.push('setsar=1');
+  if (Math.abs(speed - 1) >= 0.001) {
+    parts.push(`setpts=PTS/${speed.toFixed(4)}`);
+  }
+  // Always finish as browser-safe 4:2:0 (xfade otherwise can promote to yuv444p/HDR)
+  parts.push('format=yuv420p');
+  return parts.join(',');
+}
+
+/** atempo only accepts 0.5–2.0; chain filters for other rates. */
+function buildAtempoFilter(speed) {
+  const filters = [];
+  let remaining = speed;
+  while (remaining > 2 + 1e-6) {
+    filters.push('atempo=2.0');
+    remaining /= 2;
+  }
+  while (remaining < 0.5 - 1e-6) {
+    filters.push('atempo=0.5');
+    remaining /= 0.5;
+  }
+  if (Math.abs(remaining - 1) >= 1e-3) {
+    filters.push(`atempo=${remaining.toFixed(4)}`);
+  }
+  return filters.join(',');
+}
+
+function parseClipSpeed(raw, fallback = 1) {
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return fallback;
+  return Math.min(4, Math.max(0.25, n));
+}
+
+async function processVideo(inputPath, outputPath, { trimStartSec = 0, durationSec, rotationDegrees = 0, speed = 1 } = {}) {
+  const playbackSpeed = parseClipSpeed(speed, 1);
   return new Promise((resolve, reject) => {
     const command = ffmpeg(inputPath);
+
+    // Keep display-matrix autorotate as the upright baseline; user rotation is extra on top.
+    // Without this being explicit, some builds skip autorotate when a custom -vf is set.
+    command.inputOptions(['-autorotate']);
 
     if (trimStartSec > 0) {
       command.seekInput(trimStartSec);
@@ -102,18 +155,28 @@ async function processVideo(inputPath, outputPath, { trimStartSec = 0, durationS
       command.duration(durationSec);
     }
 
+    const outputOptions = [
+      '-vf', buildVideoFilter(rotationDegrees, playbackSpeed),
+      '-r', '25',
+      '-fps_mode', 'cfr',
+      '-pix_fmt', 'yuv420p',
+      '-c:v', 'libx264',
+      '-preset', 'veryfast',
+      '-profile:v', 'high',
+      '-level', '4.0',
+      '-shortest'
+    ];
+
+    const atempo = buildAtempoFilter(playbackSpeed);
+    if (hasAudioStream(inputPath)) {
+      if (atempo) outputOptions.push('-af', atempo);
+      outputOptions.push('-c:a', 'aac', '-b:a', '192k');
+    } else {
+      outputOptions.push('-an');
+    }
+
     command
-      .outputOptions([
-        '-vf', 'scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1',
-        '-r', '25',
-        '-fps_mode', 'cfr',
-        '-pix_fmt', 'yuv420p',
-        '-c:v', 'libx264',
-        '-preset', 'veryfast',
-        '-c:a', 'aac',
-        '-b:a', '192k',
-        '-shortest'
-      ])
+      .outputOptions(outputOptions)
       .on('start', commandLine => console.log(`FFmpeg starting (video): ${commandLine}`))
       .on('end', () => {
         console.log(`✅ Video processed successfully: ${outputPath}`);
@@ -125,6 +188,20 @@ async function processVideo(inputPath, outputPath, { trimStartSec = 0, durationS
       })
       .save(outputPath);
   });
+}
+
+/** Bake per-clip volume into a processed clip (after ensureAudioTrack). */
+function applyClipVolume(filePath, volume) {
+  const vol = parseClipVolume(volume, 1);
+  if (Math.abs(vol - 1) < 0.001) return filePath;
+
+  const outPath = filePath.replace(/\.mp4$/i, `_vol.mp4`);
+  const cmd = `"${FFMPEG_PATH}" -y -i "${filePath}" -filter:a "volume=${vol.toFixed(3)}" -c:v copy -c:a aac -b:a 192k "${outPath}"`;
+  console.log(`🔊 Clip volume ×${vol.toFixed(2)}: ${cmd}`);
+  execSync(cmd, { stdio: 'inherit' });
+  try { fs.unlinkSync(filePath); } catch { /* ignore */ }
+  fs.renameSync(outPath, filePath);
+  return filePath;
 }
 
 function resolveAudioLocalPath(track, tempFolder, index) {
@@ -210,7 +287,9 @@ async function mixMusicTracks(videoPath, tracks, tempFolder, progressCallback = 
   progressCallback(`🎚️ Mixing ${musicPaths.length} music track(s) (video audio ×${videoBoost.toFixed(2)})…`);
   console.log('[mixMusicTracks]', ffmpegCmd);
   execSync(ffmpegCmd, { stdio: 'inherit' });
-  fs.renameSync(mixedOutputPath, videoPath);
+  // Replace in place via copy so readers of the old inode are less likely to 416
+  fs.copyFileSync(mixedOutputPath, videoPath);
+  try { fs.unlinkSync(mixedOutputPath); } catch { /* ignore */ }
   return true;
 }
 
@@ -292,18 +371,13 @@ if (clipJobs.length === 0) {
 
 progressCallback(`⚙️ Encoding ${clipJobs.length} clip(s) (concurrency ${CLIP_CONCURRENCY})…`);
 
-const missing = clipJobs.filter((job) => {
-  try {
-    return !fs.existsSync(job.inputPath) || fs.statSync(job.inputPath).size <= 0;
-  } catch {
-    return true;
-  }
-});
+const { isUsableLocalFile } = require('./immich-api');
+const missing = clipJobs.filter((job) => !isUsableLocalFile(job.inputPath));
 if (missing.length) {
   const names = missing.slice(0, 5).map((j) => j.asset.downloadName).join(', ');
   const more = missing.length > 5 ? ` (+${missing.length - 5} more)` : '';
   throw new Error(
-    `Media not downloaded or empty (${missing.length}): ${names}${more}. Re-run export after Immich downloads succeed.`
+    `Media missing, empty, or corrupt (${missing.length}): ${names}${more}. Re-run export after Immich downloads succeed.`
   );
 }
 
@@ -311,15 +385,29 @@ const processedClips = await mapWithConcurrency(clipJobs, CLIP_CONCURRENCY, asyn
   const { asset, inputPath, clipOutput, durationMs, durationSec, trimStartSec, videoIndex } = job;
   progressCallback(`⚙️ Processing clip ${videoIndex + 1}/${clipJobs.length}: ${asset.downloadName}`);
 
+  const rotationDegrees = Number(asset.rotation) || 0;
+  const clipVolume = parseClipVolume(asset.volume, 1);
+  const clipSpeed = parseClipSpeed(asset.speed, 1);
+
   if (asset.type === 'IMAGE') {
-    await processImageWithDuration(inputPath, clipOutput, durationSec);
-    progressCallback(`🖼️ Image converted: ${asset.downloadName}`);
+    await processImageWithDuration(inputPath, clipOutput, durationSec, { rotationDegrees });
+    progressCallback(`🖼️ Image converted: ${asset.downloadName}${rotationDegrees ? ` (rotate ${rotationDegrees}°)` : ''}`);
   } else {
-    await processVideo(inputPath, clipOutput, { trimStartSec, durationSec });
-    progressCallback(`🎞️ Video processed: ${asset.downloadName} (trim ${trimStartSec.toFixed(2)}s, ${durationSec.toFixed(2)}s)`);
+    await processVideo(inputPath, clipOutput, {
+      trimStartSec,
+      durationSec,
+      rotationDegrees,
+      speed: clipSpeed
+    });
+    progressCallback(
+      `🎞️ Video processed: ${asset.downloadName} (trim ${trimStartSec.toFixed(2)}s, ${durationSec.toFixed(2)}s` +
+      `${clipSpeed !== 1 ? `, ${clipSpeed}x` : ''}` +
+      `${rotationDegrees ? `, rotate ${rotationDegrees}°` : ''})`
+    );
   }
 
-  const clipWithAudio = ensureAudioTrack(clipOutput);
+  let clipWithAudio = ensureAudioTrack(clipOutput);
+  clipWithAudio = applyClipVolume(clipWithAudio, clipVolume);
   progressCallback(`📦 Clip saved (${videoIndex + 1}/${clipJobs.length}): ${asset.downloadName}`);
 
   return {
@@ -435,7 +523,7 @@ function createFinalVideoWithTransitions(mediaFiles, outputPath, transitions = [
     const concatList = mediaFiles.map(f => `file '${f.clipOutput}'`).join('\n');
     fs.writeFileSync(concatListPath, concatList);
   
-    const ffmpegConcatCmd = `"${FFMPEG_PATH}" -f concat -safe 0 -i "${concatListPath}" -r 25 -fps_mode cfr -c:v libx264 -preset fast -crf 23 -c:a aac -b:a 192k -y "${outputPath}"`;
+    const ffmpegConcatCmd = `"${FFMPEG_PATH}" -f concat -safe 0 -i "${concatListPath}" -r 25 -fps_mode cfr -pix_fmt yuv420p -c:v libx264 -preset fast -crf 23 -profile:v high -level 4.0 -c:a aac -b:a 192k -y "${outputPath}"`;
     console.log('[createFinalVideoWithTransitions] FFmpeg concat (no transitions):\n' + ffmpegConcatCmd);
     execSync(ffmpegConcatCmd, { stdio: 'inherit' });
   
@@ -443,9 +531,9 @@ function createFinalVideoWithTransitions(mediaFiles, outputPath, transitions = [
   }
   
 
-  // Normalize SAR so xfade never fails on mixed sample aspect ratios from pad/scale
+  // Normalize SAR + pixel format so xfade never promotes to yuv444p / odd HDR formats
   for (let i = 0; i < mediaFiles.length; i++) {
-    filterParts.push(`[${i}:v]setsar=1[vn${i}]`);
+    filterParts.push(`[${i}:v]setsar=1,format=yuv420p[vn${i}]`);
   }
 
   for (let i = 0; i < mediaFiles.length - 1; i++) {
@@ -475,7 +563,7 @@ function createFinalVideoWithTransitions(mediaFiles, outputPath, transitions = [
 
   // xfade/acrossfade already include every clip — do not re-append the last one via concat
   const filterComplex = [...filterParts, ...audioParts].join('; ');
-  const ffmpegCommand = `"${FFMPEG_PATH}" ${inputArgs} -filter_complex "${filterComplex}" -map "${videoOut}" -map "${audioOut}" -c:v libx264 -crf 23 -preset fast -c:a aac -b:a 192k -y "${outputPath}"`;
+  const ffmpegCommand = `"${FFMPEG_PATH}" ${inputArgs} -filter_complex "${filterComplex}" -map "${videoOut}" -map "${audioOut}" -c:v libx264 -pix_fmt yuv420p -crf 23 -preset fast -profile:v high -level 4.0 -c:a aac -b:a 192k -y "${outputPath}"`;
 
   console.log('[createFinalVideoWithTransitions] FFmpeg Command:\n' + ffmpegCommand);
   execSync(ffmpegCommand, { stdio: 'inherit' });
@@ -491,7 +579,7 @@ function createFinalVideoWithTransitions(mediaFiles, outputPath, transitions = [
     }
   });
 
-  console.log('✅ Export complete:', outputPath);
+  console.log('✅ Timeline render complete:', outputPath);
 }
 
 

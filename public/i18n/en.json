@@ -35,6 +35,8 @@
     "start": "Start",
     "duration_label": "Duration",
     "trim_start": "Trim start",
+    "rotation": "Rotation",
+    "playback_speed": "Speed",
     "remove_track": "Remove",
     "clip_hint": "Drag edges to cut · drag clip to reorder",
     "timeline_zoom": "Timeline zoom",

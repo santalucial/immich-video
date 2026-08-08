@@ -504,6 +504,18 @@
       font-size: 0.9rem;
     }
 
+    .clip-inspector select {
+      background: var(--input-bg, #2a2a2a);
+      color: inherit;
+      border: 1px solid #666;
+      border-radius: 4px;
+      padding: 4px 8px;
+    }
+
+    .clip-inspector input[type="range"] {
+      width: 100px;
+    }
+
     .timeline-item {
       background: var(--card-bg);
       padding: 4px 5px;
@@ -1203,6 +1215,34 @@
         <label>
           <span data-i18n="duration_label">Duration</span>
           <input type="text" id="clipDurationInput" class="duration-input" placeholder="00:00:00" />
+        </label>
+        <label>
+          <span data-i18n="rotation">Rotation</span>
+          <select id="clipRotationSelect">
+            <option value="0">0°</option>
+            <option value="90">90° CW</option>
+            <option value="180">180°</option>
+            <option value="270">270° CW</option>
+          </select>
+        </label>
+        <label id="clipVolumeWrap">
+          <span data-i18n="volume">Volume</span>
+          <input type="range" id="clipVolumeSlider" min="0" max="100" value="100" />
+          <span id="clipVolumeValue">100%</span>
+        </label>
+        <label id="clipSpeedWrap">
+          <span data-i18n="playback_speed">Speed</span>
+          <select id="clipSpeedSelect">
+            <option value="0.25">0.25×</option>
+            <option value="0.5">0.5×</option>
+            <option value="0.75">0.75×</option>
+            <option value="1" selected>1×</option>
+            <option value="1.25">1.25×</option>
+            <option value="1.5">1.5×</option>
+            <option value="2">2×</option>
+            <option value="3">3×</option>
+            <option value="4">4×</option>
+          </select>
         </label>
         <span id="clipHint" style="opacity:0.7;font-size:0.85rem;" data-i18n="clip_hint">Drag edges to cut · drag clip to reorder</span>
         <button type="button" id="clipPreviewBtn" data-i18n="preview_video">Preview</button>
@@ -2734,6 +2774,9 @@
         player.pause();
         player.removeAttribute('src');
         player.load();
+        player.style.transform = '';
+        player.volume = 1;
+        player.playbackRate = 1;
         delete player.dataset.fallbackTried;
         modal.classList.remove('open');
         modal.setAttribute('aria-hidden', 'true');
@@ -2776,6 +2819,10 @@
         player.pause();
         player.removeAttribute('src');
         player.load();
+        const rot = Number(item.rotation) || 0;
+        player.style.transform = rot ? `rotate(${rot}deg)` : '';
+        player.volume = item.volume != null ? Math.max(0, Math.min(1, Number(item.volume))) : 1;
+        player.playbackRate = clipSpeed(item);
         status.textContent = t('preview_loading', 'Loading preview…');
 
         const startSec = Math.max(0, (startMs || 0) / 1000);
@@ -2975,6 +3022,35 @@
 
       let selectedClipIndex = -1;
 
+      const CLIP_SPEED_OPTIONS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4];
+
+      function clipSpeed(item) {
+        const s = Number(item?.speed);
+        if (!Number.isFinite(s) || s <= 0) return 1;
+        return Math.min(4, Math.max(0.25, s));
+      }
+
+      function nearestClipSpeed(value) {
+        const s = Number(value);
+        if (!Number.isFinite(s)) return 1;
+        return CLIP_SPEED_OPTIONS.reduce((best, opt) =>
+          Math.abs(opt - s) < Math.abs(best - s) ? opt : best
+        , 1);
+      }
+
+      /** Max timeline duration for a video given trim + speed (output length). */
+      function maxVideoDurationMs(item) {
+        const sourceMs = item.sourceDurationMs || ((item.trimStartMs || 0) + (item.duration || 0));
+        const remaining = Math.max(500, sourceMs - (item.trimStartMs || 0));
+        return Math.max(500, Math.floor(remaining / clipSpeed(item)));
+      }
+
+      function clampVideoDuration(item) {
+        if (!item || item.type !== 'VIDEO') return;
+        const maxDur = maxVideoDurationMs(item);
+        if ((item.duration || 0) > maxDur) item.duration = maxDur;
+      }
+
       function selectClip(index, rerender = true) {
         selectedClipIndex = index;
         const inspector = document.getElementById('clipInspector');
@@ -2990,16 +3066,29 @@
         const trimWrap = document.getElementById('clipTrimStartWrap');
         const trimInput = document.getElementById('clipTrimStartInput');
         const previewBtn = document.getElementById('clipPreviewBtn');
+        const volumeWrap = document.getElementById('clipVolumeWrap');
+        const speedWrap = document.getElementById('clipSpeedWrap');
         if (item.type === 'VIDEO') {
           trimWrap.style.display = 'flex';
           previewBtn.style.display = 'inline-block';
+          volumeWrap.style.display = 'flex';
+          speedWrap.style.display = 'flex';
           if (item.trimStartMs == null) item.trimStartMs = 0;
           if (item.sourceDurationMs == null && item.duration) item.sourceDurationMs = item.duration + (item.trimStartMs || 0);
+          clampVideoDuration(item);
           trimInput.value = formatDuration(item.trimStartMs || 0);
+          const volPct = Math.round((item.volume != null ? Number(item.volume) : 1) * 100);
+          document.getElementById('clipVolumeSlider').value = String(volPct);
+          document.getElementById('clipVolumeValue').textContent = `${volPct}%`;
+          document.getElementById('clipSpeedSelect').value = String(nearestClipSpeed(clipSpeed(item)));
         } else {
           trimWrap.style.display = 'none';
           previewBtn.style.display = 'none';
+          volumeWrap.style.display = 'none';
+          speedWrap.style.display = 'none';
         }
+        const rot = [0, 90, 180, 270].includes(Number(item.rotation)) ? Number(item.rotation) : 0;
+        document.getElementById('clipRotationSelect').value = String(rot);
         document.getElementById('clipDurationInput').value = formatDuration(item.duration || 5000);
         if (rerender) renderTimeline();
       }
@@ -3050,12 +3139,15 @@
             thumb.loading = 'lazy';
             thumb.src = item.thumbnail || mediaPreviewUrl(item) ||
               (item.downloadName ? `/media/${item.downloadName}` : '');
+            const rot = Number(item.rotation) || 0;
+            if (rot) thumb.style.transform = `rotate(${rot}deg)`;
             div.appendChild(thumb);
 
             const label = document.createElement('div');
             label.className = 'clip-label';
+            const speed = clipSpeed(item);
             label.textContent = item.type === 'VIDEO'
-              ? `🎥 ${formatDuration(item.trimStartMs || 0)} → ${formatDuration(dur)}`
+              ? `🎥 ${formatDuration(item.trimStartMs || 0)} → ${formatDuration(dur)}${speed !== 1 ? ` · ${speed}×` : ''}`
               : formatDuration(dur);
             div.appendChild(label);
 
@@ -3073,9 +3165,7 @@
                 const dx = ev.clientX - startX;
                 let next = Math.max(500, origDur + (dx / timelinePxPerSec) * 1000);
                 if (item.type === 'VIDEO') {
-                  const sourceMs = item.sourceDurationMs || ((item.trimStartMs || 0) + origDur);
-                  const maxDur = Math.max(500, sourceMs - (item.trimStartMs || 0));
-                  next = Math.min(next, maxDur);
+                  next = Math.min(next, maxVideoDurationMs({ ...item, duration: origDur }));
                 }
                 item.duration = Math.round(next);
                 document.getElementById('clipDurationInput').value = formatDuration(item.duration);
@@ -3105,17 +3195,17 @@
                 const sourceMs = item.sourceDurationMs || (origTrim + origDur);
                 const onMove = (ev) => {
                   const dx = ev.clientX - startX;
-                  const deltaMs = (dx / timelinePxPerSec) * 1000;
-                  // Dragging right edge of left handle right → later start, shorter duration
-                  let newTrim = Math.max(0, origTrim + deltaMs);
-                  let newDur = origDur - (newTrim - origTrim);
+                  const deltaOutMs = (dx / timelinePxPerSec) * 1000;
+                  const speed = clipSpeed(item);
+                  // Timeline drag is in output time; convert to source trim via speed
+                  let newTrim = Math.max(0, origTrim + deltaOutMs * speed);
+                  let newDur = origDur - deltaOutMs;
                   if (newDur < 500) {
-                    newTrim = origTrim + origDur - 500;
+                    newTrim = origTrim + (origDur - 500) * speed;
                     newDur = 500;
                   }
-                  if (newTrim + newDur > sourceMs) {
-                    newDur = Math.max(500, sourceMs - newTrim);
-                  }
+                  const maxOut = Math.max(500, Math.floor((sourceMs - newTrim) / speed));
+                  if (newDur > maxOut) newDur = maxOut;
                   item.trimStartMs = Math.round(newTrim);
                   item.duration = Math.round(newDur);
                   document.getElementById('clipTrimStartInput').value = formatDuration(item.trimStartMs);
@@ -3219,9 +3309,9 @@
           return;
         }
         const sourceMs = item.sourceDurationMs || ((item.trimStartMs || 0) + (item.duration || 0));
-        item.trimStartMs = Math.max(0, Math.min(ms, Math.max(0, sourceMs - 500)));
-        const maxDur = Math.max(500, sourceMs - item.trimStartMs);
-        if ((item.duration || 0) > maxDur) item.duration = maxDur;
+        const minSourceLeft = Math.ceil(500 * clipSpeed(item));
+        item.trimStartMs = Math.max(0, Math.min(ms, Math.max(0, sourceMs - minSourceLeft)));
+        clampVideoDuration(item);
         e.target.value = formatDuration(item.trimStartMs);
         document.getElementById('clipDurationInput').value = formatDuration(item.duration);
         renderTimeline();
@@ -3238,11 +3328,40 @@
         }
         let next = Math.max(500, ms);
         if (item.type === 'VIDEO') {
-          const sourceMs = item.sourceDurationMs || ((item.trimStartMs || 0) + (item.duration || 0));
-          next = Math.min(next, Math.max(500, sourceMs - (item.trimStartMs || 0)));
+          next = Math.min(next, maxVideoDurationMs(item));
         }
         item.duration = next;
         e.target.value = formatDuration(item.duration);
+        renderTimeline();
+      });
+
+      document.getElementById('clipRotationSelect').addEventListener('change', (e) => {
+        if (selectedClipIndex < 0) return;
+        const item = timelineItems[selectedClipIndex];
+        if (!item || item.type === 'TRANSITION') return;
+        const deg = Number(e.target.value) || 0;
+        item.rotation = [0, 90, 180, 270].includes(deg) ? deg : 0;
+        renderTimeline();
+      });
+
+      document.getElementById('clipVolumeSlider').addEventListener('input', (e) => {
+        if (selectedClipIndex < 0) return;
+        const item = timelineItems[selectedClipIndex];
+        if (!item || item.type !== 'VIDEO') return;
+        const pct = Number(e.target.value);
+        item.volume = pct / 100;
+        document.getElementById('clipVolumeValue').textContent = `${pct}%`;
+        scheduleDraftSave();
+      });
+
+      document.getElementById('clipSpeedSelect').addEventListener('change', (e) => {
+        if (selectedClipIndex < 0) return;
+        const item = timelineItems[selectedClipIndex];
+        if (!item || item.type !== 'VIDEO') return;
+        item.speed = nearestClipSpeed(e.target.value);
+        clampVideoDuration(item);
+        document.getElementById('clipDurationInput').value = formatDuration(item.duration);
+        e.target.value = String(item.speed);
         renderTimeline();
       });
 
@@ -3364,7 +3483,8 @@
       function playExportedFile(filePath) {
         const videoPlayer = document.getElementById('finalVideo');
         const fileName = String(filePath).split('/').pop();
-        videoPlayer.src = '/output/' + fileName;
+        // Cache-bust so the browser does not reuse a stale Range/Content-Length from mid-export
+        videoPlayer.src = `/output/${fileName}?t=${Date.now()}`;
         videoPlayer.load();
         videoPlayer.play().catch(() => {});
         const container = document.getElementById('videoContainer');
@@ -3526,6 +3646,11 @@
               downloadName: item.downloadName,
               duration: item.duration,
               trimStartMs: item.trimStartMs || 0,
+              rotation: Number(item.rotation) || 0,
+              volume: item.type === 'VIDEO'
+                ? (item.volume != null ? Number(item.volume) : 1)
+                : undefined,
+              speed: item.type === 'VIDEO' ? clipSpeed(item) : undefined,
               isLivePhoto: item.isLivePhoto,
               livePhotoVideoId: item.livePhotoVideoId
             }];
@@ -3783,18 +3908,28 @@
         });
       }
 
+      function applyClipPreviewTransform(el, item) {
+        if (!el) return;
+        const rot = Number(item?.rotation) || 0;
+        el.style.transform = rot ? `rotate(${rot}deg)` : '';
+      }
+
       function setProjectStageImage(item) {
         const img = document.getElementById('previewFrame');
         const video = document.getElementById('projectPreviewVideo');
         if (!img || !video) return;
         video.pause();
         video.style.display = 'none';
+        video.style.transform = '';
+        video.volume = 1;
+        video.playbackRate = 1;
         if (video.src) {
           video.removeAttribute('src');
           video.load();
         }
         projectPlayback.clipKey = null;
         img.style.display = 'block';
+        applyClipPreviewTransform(img, item);
         img.src = item
           ? (mediaPreviewUrl(item) || item.thumbnail || (item.downloadName ? `/media/${item.downloadName}` : ''))
           : '';
@@ -3835,7 +3970,12 @@
         const video = document.getElementById('projectPreviewVideo');
         if (!img || !video) return false;
         img.style.display = 'none';
+        img.style.transform = '';
         video.style.display = 'block';
+        applyClipPreviewTransform(video, item);
+        video.volume = item.volume != null ? Math.max(0, Math.min(1, Number(item.volume))) : 1;
+        const speed = clipSpeed(item);
+        video.playbackRate = speed;
 
         const key = String(item.id || item.downloadName || '');
         const needLoad = projectPlayback.clipKey !== key || !video.src;
@@ -3875,7 +4015,7 @@
         }
 
         if (projectPlayback.token !== token || !projectPlayback.active) return false;
-        const target = Math.max(0, ((item.trimStartMs || 0) + (offsetMs || 0)) / 1000);
+        const target = Math.max(0, ((item.trimStartMs || 0) + (offsetMs || 0) * speed) / 1000);
         try {
           if (Math.abs((video.currentTime || 0) - target) > 0.25) {
             video.currentTime = target;
@@ -3896,8 +4036,11 @@
         const ok = await setProjectStageVideo(entry, offsetMs, token);
         if (!ok || projectPlayback.token !== token || !projectPlayback.active) return false;
 
+        const speed = clipSpeed(entry);
+        video.playbackRate = speed;
         const trimStartSec = (entry.trimStartMs || 0) / 1000;
-        const endSec = trimStartSec + (entry.duration || 0) / 1000;
+        const sourceSpanSec = ((entry.duration || 0) / 1000) * speed;
+        const endSec = trimStartSec + sourceSpanSec;
         const totalMs = projectPlayback.plan.totalMs;
 
         await video.play().catch(() => {});
@@ -3916,7 +4059,7 @@
             if (video.paused) {
               video.play().catch(() => {});
             }
-            const localMs = Math.max(0, (video.currentTime - trimStartSec) * 1000);
+            const localMs = Math.max(0, ((video.currentTime - trimStartSec) / speed) * 1000);
             setPlayheadMs(entry.start + Math.min(localMs, entry.duration || 0), totalMs);
             if (video.currentTime >= endSec - 0.05 || video.ended) {
               cleanup();

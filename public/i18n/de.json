@@ -35,6 +35,8 @@
     "start": "Start",
     "duration_label": "Dauer",
     "trim_start": "Zuschnitt-Start",
+    "rotation": "Drehung",
+    "playback_speed": "Geschwindigkeit",
     "remove_track": "Entfernen",
     "clip_hint": "Kanten ziehen zum Schneiden · Clip ziehen zum Umsortieren",
     "timeline_zoom": "Timeline-Zoom",
