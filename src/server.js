@@ -297,6 +297,10 @@ app.post('/api/env', (req, res) => {
     .join('\n');
 
   fs.writeFileSync(envPath, envString);
+  // Keep runtime env in sync for values read during export (e.g. MUSIC_VOLUME, VIDEO_AUDIO_BOOST)
+  Object.entries(newEnv).forEach(([key, value]) => {
+    process.env[key] = value == null ? '' : String(value);
+  });
   res.json({ success: true });
 });
 

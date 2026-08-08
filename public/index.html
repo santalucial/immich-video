@@ -802,6 +802,33 @@
       font-weight: bold;
     }
 
+    .timeline-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0 20px 6px 20px;
+      flex-wrap: wrap;
+    }
+
+    .timeline-toolbar .timeline-zoom-label {
+      min-width: 3.5em;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+      font-size: 0.9rem;
+      opacity: 0.9;
+    }
+
+    .timeline-toolbar button {
+      min-width: 32px;
+      padding: 4px 10px;
+    }
+
+    .timeline-toolbar .timeline-zoom-hint {
+      font-size: 0.8rem;
+      opacity: 0.65;
+      margin-left: 4px;
+    }
+
     .loading-spinner {
       border: 4px solid rgba(255, 255, 255, 0.3);
       border-top: 4px solid var(--primary);
@@ -1033,6 +1060,16 @@
       <input type="number" id="LIVE_REPEAT_COUNT" min="1" max="10" value="5" />
     </div>
 
+    <div class="form-group">
+      <label for="MUSIC_VOLUME">Default Music Volume (0–1 or %)</label>
+      <input type="text" id="MUSIC_VOLUME" placeholder="0.5" />
+    </div>
+
+    <div class="form-group">
+      <label for="VIDEO_AUDIO_BOOST">Video Audio Boost (multiplier)</label>
+      <input type="text" id="VIDEO_AUDIO_BOOST" placeholder="1" />
+    </div>
+
     <button onclick="saveEnvSettings()" style="margin-top: 20px; width: 100%;">Save</button>
   </div>
 
@@ -1132,6 +1169,14 @@
         <div id="canvasTimeDisplay">00:00:00</div>
       </div>
 
+      <div class="timeline-toolbar">
+        <span data-i18n="timeline_zoom">Timeline zoom</span>
+        <button type="button" id="timelineZoomOut" title="Zoom out" aria-label="Zoom out">−</button>
+        <span id="timelineZoomLabel" class="timeline-zoom-label">100%</span>
+        <button type="button" id="timelineZoomIn" title="Zoom in" aria-label="Zoom in">+</button>
+        <button type="button" id="timelineZoomReset" class="secondary" data-i18n="timeline_zoom_reset">Reset</button>
+        <span class="timeline-zoom-hint" data-i18n="timeline_zoom_hint">Ctrl/⌘ + scroll</span>
+      </div>
       <div class="timeline" id="timeline"></div>
       <div id="clipInspector" class="clip-inspector">
         <strong id="clipInspectorTitle">Clip</strong>
@@ -1152,8 +1197,8 @@
         <strong id="audioInspectorTitle">Track</strong>
         <label>
           <span data-i18n="volume">Volume</span>
-          <input type="range" id="audioVolumeSlider" min="0" max="100" value="25" />
-          <span id="audioVolumeValue">25%</span>
+          <input type="range" id="audioVolumeSlider" min="0" max="100" value="50" />
+          <span id="audioVolumeValue">50%</span>
         </label>
         <label>
           <span data-i18n="start">Start</span>
@@ -1406,10 +1451,74 @@
         });
       }
 
-      const AUDIO_PX_PER_SEC = 10;
+      const TIMELINE_PX_PER_SEC_DEFAULT = 10;
+      const TIMELINE_PX_PER_SEC_MIN = 4;
+      const TIMELINE_PX_PER_SEC_MAX = 400;
+      const TIMELINE_ZOOM_STEP = 1.35;
+      let timelinePxPerSec = TIMELINE_PX_PER_SEC_DEFAULT;
+
+      function clampTimelinePxPerSec(value) {
+        return Math.min(TIMELINE_PX_PER_SEC_MAX, Math.max(TIMELINE_PX_PER_SEC_MIN, value));
+      }
+
+      function updateTimelineZoomLabel() {
+        const label = document.getElementById('timelineZoomLabel');
+        if (!label) return;
+        label.textContent = `${Math.round((timelinePxPerSec / TIMELINE_PX_PER_SEC_DEFAULT) * 100)}%`;
+      }
+
+      function setTimelineZoom(nextPxPerSec, clientX) {
+        const prev = timelinePxPerSec;
+        const next = clampTimelinePxPerSec(nextPxPerSec);
+        if (Math.abs(next - prev) < 0.01) return;
+
+        const lanes = [timelineElement, document.getElementById('audioTimeline')].filter(Boolean);
+        const anchors = lanes.map((el) => {
+          const rect = el.getBoundingClientRect();
+          const localX = clientX != null
+            ? clientX - rect.left
+            : el.clientWidth / 2;
+          const timeSec = (el.scrollLeft + localX) / prev;
+          return { el, localX, timeSec };
+        });
+
+        timelinePxPerSec = next;
+        updateTimelineZoomLabel();
+        renderTimeline();
+        renderAudioTimeline();
+
+        anchors.forEach(({ el, localX, timeSec }) => {
+          el.scrollLeft = Math.max(0, timeSec * timelinePxPerSec - localX);
+        });
+      }
+
+      function zoomTimelineBy(factor, clientX) {
+        setTimelineZoom(timelinePxPerSec * factor, clientX);
+      }
+
       const audioTimeline = []; // Music tracks on the audio lane
       let totalAudioDuration = 0;
       let selectedAudioIndex = -1;
+      let defaultMusicVolume = 0.5;
+
+      function parseMusicVolume(raw, fallback = 0.5) {
+        if (raw == null || raw === '') return fallback;
+        const n = Number(raw);
+        if (!Number.isFinite(n) || n < 0) return fallback;
+        if (n > 1) return Math.min(1, n / 100);
+        return n;
+      }
+
+      function applyDefaultMusicVolume(volume) {
+        defaultMusicVolume = parseMusicVolume(volume, 0.5);
+        const pct = Math.round(defaultMusicVolume * 100);
+        const slider = document.getElementById('audioVolumeSlider');
+        const label = document.getElementById('audioVolumeValue');
+        if (slider && selectedAudioIndex < 0) {
+          slider.value = String(pct);
+          if (label) label.textContent = `${pct}%`;
+        }
+      }
 
       function formatSecToTime(sec) {
         return formatDuration(Math.max(0, Math.round((Number(sec) || 0) * 1000)));
@@ -1437,7 +1546,7 @@
         const track = audioTimeline[index];
         inspector.classList.add('visible');
         document.getElementById('audioInspectorTitle').textContent = track.title || 'Track';
-        const volPct = Math.round((track.volume != null ? track.volume : 0.25) * 100);
+        const volPct = Math.round((track.volume != null ? track.volume : defaultMusicVolume) * 100);
         document.getElementById('audioVolumeSlider').value = String(volPct);
         document.getElementById('audioVolumeValue').textContent = `${volPct}%`;
         document.getElementById('audioStartInput').value = formatSecToTime(track.start);
@@ -1479,7 +1588,7 @@
           start,
           duration,
           sourceDuration,
-          volume: track.volume != null ? Number(track.volume) : 0.25
+          volume: track.volume != null ? Number(track.volume) : defaultMusicVolume
         });
 
         syncTotalAudioDuration();
@@ -1508,7 +1617,7 @@
               duration: uploaded.duration,
               sourceDuration: uploaded.duration,
               source: 'local',
-              volume: 0.25
+              volume: defaultMusicVolume
             }, dropStartSec);
           } catch (err) {
             console.error(err);
@@ -1520,14 +1629,14 @@
       function renderAudioTimeline() {
         const container = document.getElementById("audioTimeline");
         container.innerHTML = "";
-        const minWidth = Math.max(800, Math.ceil(Math.max(totalAudioDuration, 1) * AUDIO_PX_PER_SEC) + 40);
+        const minWidth = Math.max(800, Math.ceil(Math.max(totalAudioDuration, 1) * timelinePxPerSec) + 40);
         container.style.minWidth = `${minWidth}px`;
 
         audioTimeline.forEach((track, index) => {
           const div = document.createElement("div");
           div.className = "audio-block" + (index === selectedAudioIndex ? " selected" : "");
-          div.style.left = `${(track.start || 0) * AUDIO_PX_PER_SEC}px`;
-          div.style.width = `${Math.max(20, (track.duration || 1) * AUDIO_PX_PER_SEC)}px`;
+          div.style.left = `${(track.start || 0) * timelinePxPerSec}px`;
+          div.style.width = `${Math.max(20, (track.duration || 1) * timelinePxPerSec)}px`;
           div.title = `${track.title} (${formatSecToTime(track.start)} · ${Math.round((track.volume || 0) * 100)}%)`;
           div.dataset.index = String(index);
 
@@ -1557,7 +1666,7 @@
             const origStart = track.start || 0;
             const onMove = (ev) => {
               const dx = ev.clientX - startX;
-              track.start = Math.max(0, origStart + dx / AUDIO_PX_PER_SEC);
+              track.start = Math.max(0, origStart + dx / timelinePxPerSec);
               syncTotalAudioDuration();
               renderAudioTimeline();
               if (selectedAudioIndex === index) {
@@ -1581,7 +1690,7 @@
             const maxDur = track.sourceDuration || origDur;
             const onMove = (ev) => {
               const dx = ev.clientX - startX;
-              track.duration = Math.max(0.5, Math.min(maxDur, origDur + dx / AUDIO_PX_PER_SEC));
+              track.duration = Math.max(0.5, Math.min(maxDur, origDur + dx / timelinePxPerSec));
               syncTotalAudioDuration();
               renderAudioTimeline();
               if (selectedAudioIndex === index) {
@@ -1661,7 +1770,7 @@
       audioDropZone.addEventListener('drop', async e => {
         e.preventDefault();
         const rect = audioDropZone.getBoundingClientRect();
-        const dropStartSec = Math.max(0, (e.clientX - rect.left + audioDropZone.scrollLeft) / AUDIO_PX_PER_SEC);
+        const dropStartSec = Math.max(0, (e.clientX - rect.left + audioDropZone.scrollLeft) / timelinePxPerSec);
 
         if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
           await addLocalAudioFiles(e.dataTransfer.files, dropStartSec);
@@ -1770,13 +1879,17 @@
             "OLLAMA_ENDPOINT",
             "OLLAMA_MODEL",
             "CAPTION_API_URL",
-            "PORT"
+            "PORT",
+            "MUSIC_VOLUME",
+            "VIDEO_AUDIO_BOOST"
           ];
 
           keys.forEach(key => {
             const el = document.getElementById(key);
             if (el) el.value = env[key] || "";
           });
+
+          applyDefaultMusicVolume(env.MUSIC_VOLUME);
 
           // 🔽 Direkt dato Modelle laden
           populateOllamaModels(env.OLLAMA_MODEL || "");
@@ -1796,7 +1909,9 @@
           "OLLAMA_ENDPOINT",
           "OLLAMA_MODEL",
           "CAPTION_API_URL",
-          "PORT"
+          "PORT",
+          "MUSIC_VOLUME",
+          "VIDEO_AUDIO_BOOST"
         ];
 
         const updatedEnv = {};
@@ -1813,6 +1928,7 @@
           });
 
           if (res.ok) {
+            applyDefaultMusicVolume(updatedEnv.MUSIC_VOLUME);
             alert(".env saved!");
           } else {
             alert("Error saving .env");
@@ -2171,6 +2287,29 @@
         }
       });
 
+      document.getElementById('timelineZoomIn').addEventListener('click', () => {
+        zoomTimelineBy(TIMELINE_ZOOM_STEP);
+      });
+      document.getElementById('timelineZoomOut').addEventListener('click', () => {
+        zoomTimelineBy(1 / TIMELINE_ZOOM_STEP);
+      });
+      document.getElementById('timelineZoomReset').addEventListener('click', () => {
+        setTimelineZoom(TIMELINE_PX_PER_SEC_DEFAULT);
+      });
+
+      function bindTimelineZoomWheel(el) {
+        if (!el) return;
+        el.addEventListener('wheel', (e) => {
+          if (!(e.ctrlKey || e.metaKey)) return;
+          e.preventDefault();
+          const factor = e.deltaY < 0 ? TIMELINE_ZOOM_STEP : 1 / TIMELINE_ZOOM_STEP;
+          zoomTimelineBy(factor, e.clientX);
+        }, { passive: false });
+      }
+      bindTimelineZoomWheel(timelineElement);
+      bindTimelineZoomWheel(document.getElementById('audioTimeline'));
+      updateTimelineZoomLabel();
+
       function initTransitions() {
         const transitions = document.querySelectorAll('.transition-item');
 
@@ -2503,7 +2642,6 @@
         durationEl.textContent = prefix + formatMsToTime(totalMs);
       }
 
-      const MEDIA_PX_PER_SEC = 10;
       let selectedClipIndex = -1;
 
       function selectClip(index, rerender = true) {
@@ -2543,7 +2681,7 @@
       function renderTimeline() {
         timelineElement.innerHTML = '';
         const totalMs = Math.max(calculateTimelineDuration(), 1000);
-        timelineElement.style.minWidth = `${Math.max(800, (totalMs / 1000) * MEDIA_PX_PER_SEC + 40)}px`;
+        timelineElement.style.minWidth = `${Math.max(800, (totalMs / 1000) * timelinePxPerSec + 40)}px`;
 
         let t = 0;
         timelineItems.forEach((item, index) => {
@@ -2553,8 +2691,8 @@
           div.className = 'timeline-clip' +
             (isTransition ? ' transition-clip' : '') +
             (index === selectedClipIndex ? ' selected' : '');
-          div.style.left = `${(t / 1000) * MEDIA_PX_PER_SEC}px`;
-          div.style.width = `${Math.max(isTransition ? 28 : 48, (dur / 1000) * MEDIA_PX_PER_SEC)}px`;
+          div.style.left = `${(t / 1000) * timelinePxPerSec}px`;
+          div.style.width = `${Math.max(isTransition ? 28 : 48, (dur / 1000) * timelinePxPerSec)}px`;
           div.dataset.index = String(index);
           div.title = isTransition
             ? (item.transition || 'transition')
@@ -2602,7 +2740,7 @@
               const origDur = clipDurationMs(item);
               const onMove = (ev) => {
                 const dx = ev.clientX - startX;
-                let next = Math.max(500, origDur + (dx / MEDIA_PX_PER_SEC) * 1000);
+                let next = Math.max(500, origDur + (dx / timelinePxPerSec) * 1000);
                 if (item.type === 'VIDEO') {
                   const sourceMs = item.sourceDurationMs || ((item.trimStartMs || 0) + origDur);
                   const maxDur = Math.max(500, sourceMs - (item.trimStartMs || 0));
@@ -2636,7 +2774,7 @@
                 const sourceMs = item.sourceDurationMs || (origTrim + origDur);
                 const onMove = (ev) => {
                   const dx = ev.clientX - startX;
-                  const deltaMs = (dx / MEDIA_PX_PER_SEC) * 1000;
+                  const deltaMs = (dx / timelinePxPerSec) * 1000;
                   // Dragging right edge of left handle right → later start, shorter duration
                   let newTrim = Math.max(0, origTrim + deltaMs);
                   let newDur = origDur - (newTrim - origTrim);
@@ -2710,7 +2848,7 @@
 
               const rect = timelineElement.getBoundingClientRect();
               const x = ev.clientX - rect.left + timelineElement.scrollLeft;
-              const dropMs = (x / MEDIA_PX_PER_SEC) * 1000;
+              const dropMs = (x / timelinePxPerSec) * 1000;
               let acc = 0;
               let insertAt = timelineItems.length;
               for (let i = 0; i < timelineItems.length; i++) {
@@ -3066,7 +3204,7 @@
             title: track.title,
             duration: track.duration,
             start: track.start,
-            volume: track.volume != null ? track.volume : 0.25,
+            volume: track.volume != null ? track.volume : defaultMusicVolume,
             artist: track.artist || '',
             license: track.license || '',
             source: track.source || 'jamendo'
@@ -3225,7 +3363,7 @@
 
           const audio = new Audio(src);
           audio.preload = 'auto';
-          audio.volume = track.volume != null ? Number(track.volume) : 0.25;
+          audio.volume = track.volume != null ? Number(track.volume) : defaultMusicVolume;
           projectPlayback.music.push(audio);
 
           const begin = () => {

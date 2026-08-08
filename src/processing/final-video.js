@@ -7,6 +7,31 @@ const { spawn, execSync, exec } = require('child_process');
 const LIVE_REPEAT_COUNT = process.env.LIVE_REPEAT_COUNT || 5;
 const CLIP_CONCURRENCY = Math.max(1, parseInt(process.env.CLIP_CONCURRENCY || '2', 10));
 
+/** Music volume 0–1. Accepts fraction (0.5) or percent (50). Default 50%. */
+function parseMusicVolume(raw, fallback = 0.5) {
+  if (raw == null || raw === '') return fallback;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0) return fallback;
+  if (n > 1) return Math.min(1, n / 100);
+  return n;
+}
+
+function getDefaultMusicVolume() {
+  return parseMusicVolume(process.env.MUSIC_VOLUME, 0.5);
+}
+
+/** Multiplier for original clip/video audio. Default 1 (no change). */
+function parseAudioBoost(raw, fallback = 1) {
+  if (raw == null || raw === '') return fallback;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0) return fallback;
+  return n;
+}
+
+function getVideoAudioBoost() {
+  return parseAudioBoost(process.env.VIDEO_AUDIO_BOOST, 1);
+}
+
 function parseTimeStringToMs(timeStr) {
   const parts = timeStr.split(':');
   if (parts.length !== 3) return 5000;
@@ -53,7 +78,7 @@ function ensureAudioTrack(filePath) {
   if (!fs.existsSync(silentFilePath)) {
     const cmd = `"${FFMPEG_PATH}" -y -i "${filePath}" \
 -f lavfi -t ${duration} -i anullsrc=channel_layout=stereo:sample_rate=48000 \
--r 25 -vsync 2 \
+-r 25 -fps_mode cfr \
 -c:v libx264 -preset veryfast -pix_fmt yuv420p \
 -c:a aac -b:a 192k \
 -shortest "${silentFilePath}"`;
@@ -79,9 +104,9 @@ async function processVideo(inputPath, outputPath, { trimStartSec = 0, durationS
 
     command
       .outputOptions([
-        '-vf', 'scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2',
+        '-vf', 'scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1',
         '-r', '25',
-        '-vsync', '2',
+        '-fps_mode', 'cfr',
         '-pix_fmt', 'yuv420p',
         '-c:v', 'libx264',
         '-preset', 'veryfast',
@@ -151,14 +176,19 @@ async function mixMusicTracks(videoPath, tracks, tempFolder, progressCallback = 
   const mixedOutputPath = videoPath.replace(/\.mp4$/i, '_mixed.mp4');
   const inputArgs = [`-i "${videoPath}"`, ...musicPaths.map(m => `-i "${m.path}"`)].join(' ');
 
-  const filterParts = [];
-  const mixLabels = ['[0:a]'];
+  const videoBoost = getVideoAudioBoost();
+  const filterParts = [`[0:a]volume=${videoBoost.toFixed(3)}[va]`];
+  const mixLabels = ['[va]'];
 
   musicPaths.forEach((m, i) => {
     const inputIdx = i + 1;
     const startSec = Math.max(0, Number(m.track.start) || 0);
     const durationSec = Math.max(0.1, Number(m.track.duration) || getDurationInSeconds(m.path));
-    const volume = m.track.volume != null ? Number(m.track.volume) : 0.25;
+    const defaultVol = getDefaultMusicVolume();
+    const volume = parseMusicVolume(
+      m.track.volume != null ? m.track.volume : defaultVol,
+      defaultVol
+    );
     const delayMs = Math.round(startSec * 1000);
     const label = `music${i}`;
 
@@ -177,10 +207,24 @@ async function mixMusicTracks(videoPath, tracks, tempFolder, progressCallback = 
   const ffmpegCmd = `"${FFMPEG_PATH}" ${inputArgs} -filter_complex "${filterParts.join(';')}" \
 -map 0:v -map "[aout]" -c:v copy -c:a aac -b:a 192k -shortest -y "${mixedOutputPath}"`;
 
-  progressCallback(`🎚️ Mixing ${musicPaths.length} music track(s)…`);
+  progressCallback(`🎚️ Mixing ${musicPaths.length} music track(s) (video audio ×${videoBoost.toFixed(2)})…`);
   console.log('[mixMusicTracks]', ffmpegCmd);
   execSync(ffmpegCmd, { stdio: 'inherit' });
   fs.renameSync(mixedOutputPath, videoPath);
+  return true;
+}
+
+async function applyVideoAudioBoost(videoPath, progressCallback = () => {}) {
+  const boost = getVideoAudioBoost();
+  if (Math.abs(boost - 1) < 0.001) return false;
+
+  const boostedPath = videoPath.replace(/\.mp4$/i, '_boosted.mp4');
+  const ffmpegCmd = `"${FFMPEG_PATH}" -i "${videoPath}" -filter:a "volume=${boost.toFixed(3)}" -c:v copy -c:a aac -b:a 192k -y "${boostedPath}"`;
+
+  progressCallback(`🔊 Applying video audio boost ×${boost.toFixed(2)}…`);
+  console.log('[applyVideoAudioBoost]', ffmpegCmd);
+  execSync(ffmpegCmd, { stdio: 'inherit' });
+  fs.renameSync(boostedPath, videoPath);
   return true;
 }
 
@@ -294,7 +338,12 @@ const mixed = await mixMusicTracks(outputPath, options.audio, tempFolder, progre
 if (mixed) {
   progressCallback(`✅ Final audio mix complete: ${outputPath}`);
 } else {
-  progressCallback(`🎧 No additional audio track – keeping clip audio.`);
+  const boosted = await applyVideoAudioBoost(outputPath, progressCallback);
+  if (boosted) {
+    progressCallback(`✅ Video audio boost applied: ${outputPath}`);
+  } else {
+    progressCallback(`🎧 No additional audio track – keeping clip audio.`);
+  }
 }
 
   progressCallback(`✅ Export complete: ${outputPath}`);
@@ -386,7 +435,7 @@ function createFinalVideoWithTransitions(mediaFiles, outputPath, transitions = [
     const concatList = mediaFiles.map(f => `file '${f.clipOutput}'`).join('\n');
     fs.writeFileSync(concatListPath, concatList);
   
-    const ffmpegConcatCmd = `"${FFMPEG_PATH}" -f concat -safe 0 -i "${concatListPath}" -vsync 2 -c:v libx264 -preset fast -crf 23 -c:a aac -b:a 192k -y "${outputPath}"`;
+    const ffmpegConcatCmd = `"${FFMPEG_PATH}" -f concat -safe 0 -i "${concatListPath}" -r 25 -fps_mode cfr -c:v libx264 -preset fast -crf 23 -c:a aac -b:a 192k -y "${outputPath}"`;
     console.log('[createFinalVideoWithTransitions] FFmpeg concat (no transitions):\n' + ffmpegConcatCmd);
     execSync(ffmpegConcatCmd, { stdio: 'inherit' });
   
@@ -394,23 +443,26 @@ function createFinalVideoWithTransitions(mediaFiles, outputPath, transitions = [
   }
   
 
+  // Normalize SAR so xfade never fails on mixed sample aspect ratios from pad/scale
+  for (let i = 0; i < mediaFiles.length; i++) {
+    filterParts.push(`[${i}:v]setsar=1[vn${i}]`);
+  }
+
   for (let i = 0; i < mediaFiles.length - 1; i++) {
-    const inputA = i === 0 ? `[${i}:v]` : `[v${i}]`;
-    const inputB = `[${i + 1}:v]`;
+    const inputA = i === 0 ? `[vn${i}]` : `[v${i}]`;
+    const inputB = `[vn${i + 1}]`;
     const outLabel = i === mediaFiles.length - 2 ? 'vout' : `v${i + 1}`;
-    
+
     const inputA_a = i === 0 ? `[${i}:a]` : `[a${i}]`;
     const inputB_a = `[${i + 1}:a]`;
     const outLabelA = i === mediaFiles.length - 2 ? 'aout' : `a${i + 1}`;
 
-    // 🔥 Berechne dynamisch die Übergangsdauer
     const trans = transitions[i] || {};
-    let transType = trans.transition || 'fade';
+    const transType = trans.transition || 'fade';
     const durA = mediaFiles[i].durationSec;
     const durB = mediaFiles[i + 1].durationSec;
-    let transDuration = Math.min((trans.duration || 1), durA, durB, 2); // max. 2s oder so
+    const transDuration = Math.min((trans.duration || 1), durA, durB, 2);
 
-    // 🧠 Offset ist Clip A komplett - Übergangsdauer
     const offset = accumulatedOffset + durA - transDuration;
 
     filterParts.push(`${inputA}${inputB}xfade=transition=${transType}:duration=${transDuration.toFixed(2)}:offset=${offset.toFixed(2)}[${outLabel}]`);
@@ -421,22 +473,9 @@ function createFinalVideoWithTransitions(mediaFiles, outputPath, transitions = [
     audioOut = `[${outLabelA}]`;
   }
 
-  let finalVideoOut = videoOut;
-let finalAudioOut = audioOut;
-
-if (mediaFiles.length > transitions.length + 1) {
-  const lastIndex = mediaFiles.length - 1;
-
-  // letzte Clip-Datei anhängen
-  filterParts.push(`${videoOut}[${lastIndex}:v]concat=n=2:v=1:a=0[vout_final]`);
-  audioParts.push(`${audioOut}[${lastIndex}:a]concat=n=2:v=0:a=1[aout_final]`);
-
-  finalVideoOut = '[vout_final]';
-  finalAudioOut = '[aout_final]';
-}
-
-const filterComplex = [...filterParts, ...audioParts].join('; ');
-const ffmpegCommand = `"${FFMPEG_PATH}" ${inputArgs} -filter_complex "${filterComplex}" -map "${finalVideoOut}" -map "${finalAudioOut}" -c:v libx264 -crf 23 -preset fast -c:a aac -b:a 192k -y "${outputPath}"`;
+  // xfade/acrossfade already include every clip — do not re-append the last one via concat
+  const filterComplex = [...filterParts, ...audioParts].join('; ');
+  const ffmpegCommand = `"${FFMPEG_PATH}" ${inputArgs} -filter_complex "${filterComplex}" -map "${videoOut}" -map "${audioOut}" -c:v libx264 -crf 23 -preset fast -c:a aac -b:a 192k -y "${outputPath}"`;
 
   console.log('[createFinalVideoWithTransitions] FFmpeg Command:\n' + ffmpegCommand);
   execSync(ffmpegCommand, { stdio: 'inherit' });

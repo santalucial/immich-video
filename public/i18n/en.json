@@ -36,5 +36,8 @@
     "duration_label": "Duration",
     "trim_start": "Trim start",
     "remove_track": "Remove",
-    "clip_hint": "Drag edges to cut · drag clip to reorder"
+    "clip_hint": "Drag edges to cut · drag clip to reorder",
+    "timeline_zoom": "Timeline zoom",
+    "timeline_zoom_reset": "Reset",
+    "timeline_zoom_hint": "Ctrl/⌘ + scroll"
 }

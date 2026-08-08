@@ -40,7 +40,8 @@ Media can be easily arranged in an intuitive drag-and-drop timeline.
 ### 🎵 Music on the Timeline
 - Search Jamendo tracks or upload your own files (`mp3`, `wav`, `m4a`, `ogg`, `aac`)
 - Drag blocks to place them in time; resize the right edge to shorten playback
-- Per-track volume control
+- Per-track volume control (default from `MUSIC_VOLUME`, 50%)
+- Overall clip/video audio boost via `VIDEO_AUDIO_BOOST` (default `1`)
 - Original video/Live Photo audio is preserved and mixed with music
 - Missing clip audio tracks are filled with silence
 
@@ -85,6 +86,12 @@ IMMICH_API=http://192.168.x.x:2283/api
 UPLOAD_PATH=./uploads
 OUTPUT_PATH=./output
 PORT=3000
+
+# Music (0–1 fraction or 0–100 percent; default 50%)
+MUSIC_VOLUME=0.5
+
+# Original clip/video audio multiplier (1 = unchanged, 1.5 = +50%, 2 = double)
+VIDEO_AUDIO_BOOST=1
 ```
 
 ## 🧬 Ollama & BLIP Setup (Local Installation)
@@ -150,7 +157,8 @@ Die Übersetzungen liegen im Verzeichnis:
 ### 🎵 Musik auf der Timeline
 - Jamendo-Suche oder eigene Dateien hochladen (`mp3`, `wav`, `m4a`, `ogg`, `aac`)
 - Blöcke verschieben und am rechten Rand kürzen
-- Lautstärke pro Track
+- Lautstärke pro Track (Standard über `MUSIC_VOLUME`, 50%)
+- Gesamte Clip-/Video-Lautstärke über `VIDEO_AUDIO_BOOST` (Standard `1`)
 - Originalton von Videos/Live-Fotos bleibt erhalten und wird mit der Musik gemischt
 - Fehlende Audiospuren werden mit Stille ergänzt
 
@@ -194,6 +202,12 @@ IMMICH_API=http://192.168.x.x:2283/api
 UPLOAD_PATH=./uploads
 OUTPUT_PATH=./output
 PORT=3000
+
+# Musik (0–1 Bruch oder 0–100 Prozent; Standard 50%)
+MUSIC_VOLUME=0.5
+
+# Original-Clip-/Video-Audio-Multiplikator (1 = unverändert, 1.5 = +50%, 2 = doppelt)
+VIDEO_AUDIO_BOOST=1
 ```
 
 ## 🧬 Ollama & BLIP Setup (lokale Installation)
