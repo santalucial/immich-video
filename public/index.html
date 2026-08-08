@@ -1111,6 +1111,22 @@
         <button id="generate-music-tags" class="btn">🎼 Generate Music Tags</button>
       </div>
 
+      <h3 data-i18n="project_section">Project</h3>
+      <div class="form-group">
+        <label for="projectNameInput" data-i18n="project_name">Project name</label>
+        <input type="text" id="projectNameInput" class="form-control" placeholder="My Project" autocomplete="off">
+        <select id="projectLoadSelect" style="margin-top: 8px; width: 100%;">
+          <option value="">-- Load saved --</option>
+        </select>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;">
+          <button type="button" id="projectSaveBtn" class="btn-primary" data-i18n="project_save">Save</button>
+          <button type="button" id="projectLoadBtn" data-i18n="project_load">Load</button>
+          <button type="button" id="projectNewBtn" data-i18n="project_new">New</button>
+          <button type="button" id="projectDeleteBtn" data-i18n="project_delete">Delete</button>
+        </div>
+        <p id="projectStatus" class="project-preview-note" style="margin-top: 8px;"></p>
+      </div>
+
       <h3>Export</h3>
       <div class="form-group">
         <button id="exportBtn" class="btn-primary" data-i18n="export">Start Export</button>
@@ -1712,6 +1728,315 @@
 
           container.appendChild(div);
         });
+        scheduleDraftSave();
+      }
+
+      const DRAFT_KEY = 'immich-video-draft';
+      const PROJECT_NAME_KEY = 'immich-video-project-name';
+      let currentProjectName = localStorage.getItem(PROJECT_NAME_KEY) || '';
+      let draftSaveTimer = null;
+      let suppressDraftSave = false;
+      let projectUiReady = false;
+
+      function sanitizeClientProjectName(raw) {
+        return String(raw || '')
+          .trim()
+          .replace(/\s+/g, '_')
+          .replace(/[^a-zA-Z0-9_-]/g, '')
+          .slice(0, 80);
+      }
+
+      function setProjectStatus(message) {
+        const el = document.getElementById('projectStatus');
+        if (el) el.textContent = message || '';
+      }
+
+      function serializeProject(nameOverride) {
+        const nameInput = document.getElementById('projectNameInput');
+        const name = sanitizeClientProjectName(
+          nameOverride != null ? nameOverride : (nameInput?.value || currentProjectName)
+        );
+        return {
+          version: 1,
+          name: name || 'Untitled',
+          updatedAt: new Date().toISOString(),
+          albumId: document.getElementById('albumSelect')?.value || document.getElementById('uploadAlbum')?.value || '',
+          title: document.getElementById('title')?.value || '',
+          resolution: document.getElementById('resolution')?.value || '1080p',
+          timelineItems: JSON.parse(JSON.stringify(timelineItems)),
+          audioTimeline: JSON.parse(JSON.stringify(audioTimeline))
+        };
+      }
+
+      function saveDraftNow() {
+        if (suppressDraftSave) return;
+        try {
+          const draft = serializeProject(currentProjectName || document.getElementById('projectNameInput')?.value);
+          localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+          if (projectUiReady) {
+            setProjectStatus(t('project_draft_saved', 'Draft saved'));
+          }
+        } catch (err) {
+          console.warn('Draft save failed:', err);
+        }
+      }
+
+      function scheduleDraftSave() {
+        if (suppressDraftSave) return;
+        clearTimeout(draftSaveTimer);
+        draftSaveTimer = setTimeout(saveDraftNow, 500);
+      }
+
+      function clearDraft() {
+        localStorage.removeItem(DRAFT_KEY);
+      }
+
+      async function fetchAlbumMediaQuiet(albumId) {
+        if (!albumId) return;
+        try {
+          const response = await fetch(`/api/album?albumId=${encodeURIComponent(albumId)}`);
+          if (!response.ok) throw new Error('Error loading album');
+          const albumMedia = await response.json();
+          setAlbumMedia(albumMedia);
+          const uploadAlbum = document.getElementById('uploadAlbum');
+          if (uploadAlbum) uploadAlbum.value = albumId;
+          const albumSelect = document.getElementById('albumSelect');
+          if (albumSelect && Array.from(albumSelect.options).some((o) => o.value === albumId)) {
+            albumSelect.value = albumId;
+          }
+        } catch (err) {
+          console.warn('Could not reload album for project:', err);
+          setProjectStatus(t('project_album_warn', 'Project loaded; album media could not be refreshed'));
+        }
+      }
+
+      async function applyProject(data, { asNamed = false } = {}) {
+        if (!data || typeof data !== 'object') return;
+        suppressDraftSave = true;
+        try {
+          const name = sanitizeClientProjectName(data.name || '');
+          currentProjectName = asNamed ? name : (name || currentProjectName);
+          localStorage.setItem(PROJECT_NAME_KEY, currentProjectName);
+          const nameInput = document.getElementById('projectNameInput');
+          if (nameInput) nameInput.value = currentProjectName;
+
+          const titleEl = document.getElementById('title');
+          if (titleEl) titleEl.value = data.title != null ? data.title : 'Generated Title';
+
+          const resEl = document.getElementById('resolution');
+          if (resEl && data.resolution) resEl.value = data.resolution;
+
+          timelineItems = Array.isArray(data.timelineItems)
+            ? JSON.parse(JSON.stringify(data.timelineItems))
+            : [];
+          audioTimeline.length = 0;
+          if (Array.isArray(data.audioTimeline)) {
+            data.audioTimeline.forEach((track) => audioTimeline.push(JSON.parse(JSON.stringify(track))));
+          }
+          syncTotalAudioDuration();
+          selectedClipIndex = -1;
+          selectedAudioIndex = -1;
+
+          const albumId = data.albumId || '';
+          if (albumId) {
+            await fetchAlbumMediaQuiet(albumId);
+          }
+
+          selectClip(-1, false);
+          selectAudioTrack(-1);
+          renderTimeline();
+          renderAudioTimeline();
+          updateTimelineDuration();
+        } finally {
+          suppressDraftSave = false;
+          saveDraftNow();
+        }
+      }
+
+      async function refreshProjectList() {
+        const select = document.getElementById('projectLoadSelect');
+        if (!select) return;
+        const prev = select.value;
+        try {
+          const res = await fetch('/api/projects');
+          if (!res.ok) throw new Error('Failed to list projects');
+          const list = await res.json();
+          select.innerHTML = `<option value="">${t('project_load_placeholder', '-- Load saved --')}</option>`;
+          list.forEach((p) => {
+            const opt = document.createElement('option');
+            opt.value = p.name;
+            const stamp = p.updatedAt ? new Date(p.updatedAt).toLocaleString() : '';
+            opt.textContent = stamp ? `${p.name} (${stamp})` : p.name;
+            select.appendChild(opt);
+          });
+          if (prev && Array.from(select.options).some((o) => o.value === prev)) {
+            select.value = prev;
+          }
+        } catch (err) {
+          console.warn('Could not refresh project list:', err);
+        }
+      }
+
+      async function saveNamedProject() {
+        const nameInput = document.getElementById('projectNameInput');
+        const name = sanitizeClientProjectName(nameInput?.value || currentProjectName);
+        if (!name) {
+          alert(t('project_empty_name', 'Enter a project name'));
+          return;
+        }
+        if (nameInput) nameInput.value = name;
+        const payload = serializeProject(name);
+        try {
+          const res = await fetch(`/api/projects/${encodeURIComponent(name)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || 'Save failed');
+          }
+          currentProjectName = name;
+          localStorage.setItem(PROJECT_NAME_KEY, name);
+          saveDraftNow();
+          await refreshProjectList();
+          setProjectStatus(t('project_saved', 'Project saved') + `: ${name}`);
+        } catch (err) {
+          console.error(err);
+          alert(err.message);
+        }
+      }
+
+      async function loadNamedProject(name) {
+        const safe = sanitizeClientProjectName(name);
+        if (!safe) {
+          alert(t('project_pick_load', 'Select a project to load'));
+          return;
+        }
+        saveDraftNow();
+        try {
+          const res = await fetch(`/api/projects/${encodeURIComponent(safe)}`);
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || 'Load failed');
+          }
+          const data = await res.json();
+          await applyProject(data, { asNamed: true });
+          const loadSelect = document.getElementById('projectLoadSelect');
+          if (loadSelect) loadSelect.value = safe;
+          setProjectStatus(t('project_loaded', 'Project loaded') + `: ${safe}`);
+        } catch (err) {
+          console.error(err);
+          alert(err.message);
+        }
+      }
+
+      async function deleteNamedProject() {
+        const loadSelect = document.getElementById('projectLoadSelect');
+        const nameInput = document.getElementById('projectNameInput');
+        const name = sanitizeClientProjectName(loadSelect?.value || nameInput?.value || currentProjectName);
+        if (!name) {
+          alert(t('project_pick_delete', 'Select or enter a project to delete'));
+          return;
+        }
+        if (!confirm(t('project_delete_confirm', 'Delete this saved project?') + `\n${name}`)) {
+          return;
+        }
+        try {
+          const res = await fetch(`/api/projects/${encodeURIComponent(name)}`, { method: 'DELETE' });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || 'Delete failed');
+          }
+          if (currentProjectName === name) {
+            currentProjectName = '';
+            localStorage.removeItem(PROJECT_NAME_KEY);
+            if (nameInput) nameInput.value = '';
+          }
+          await refreshProjectList();
+          setProjectStatus(t('project_deleted', 'Project deleted') + `: ${name}`);
+        } catch (err) {
+          console.error(err);
+          alert(err.message);
+        }
+      }
+
+      async function newProject() {
+        const hasContent = timelineItems.length > 0 || audioTimeline.length > 0;
+        if (hasContent && !confirm(t('project_new_confirm', 'Clear the current timeline and start a new project?'))) {
+          return;
+        }
+        suppressDraftSave = true;
+        try {
+          timelineItems = [];
+          audioTimeline.length = 0;
+          syncTotalAudioDuration();
+          currentProjectName = '';
+          localStorage.removeItem(PROJECT_NAME_KEY);
+          clearDraft();
+          const nameInput = document.getElementById('projectNameInput');
+          if (nameInput) nameInput.value = '';
+          const titleEl = document.getElementById('title');
+          if (titleEl) titleEl.value = 'Generated Title';
+          selectClip(-1, false);
+          selectAudioTrack(-1);
+          renderTimeline();
+          renderAudioTimeline();
+          updateTimelineDuration();
+          setProjectStatus(t('project_new_done', 'New project'));
+        } finally {
+          suppressDraftSave = false;
+        }
+      }
+
+      async function restoreDraftIfAny() {
+        let raw;
+        try {
+          raw = localStorage.getItem(DRAFT_KEY);
+        } catch (_) {
+          return false;
+        }
+        if (!raw) return false;
+        try {
+          const data = JSON.parse(raw);
+          const hasContent =
+            (Array.isArray(data.timelineItems) && data.timelineItems.length > 0) ||
+            (Array.isArray(data.audioTimeline) && data.audioTimeline.length > 0) ||
+            (data.title && data.title !== 'Generated Title');
+          if (!hasContent && !data.albumId) return false;
+          await applyProject(data, { asNamed: Boolean(sanitizeClientProjectName(data.name)) });
+          setProjectStatus(t('project_draft_restored', 'Draft restored'));
+          return true;
+        } catch (err) {
+          console.warn('Could not restore draft:', err);
+          return false;
+        }
+      }
+
+      function wireProjectUi() {
+        const nameInput = document.getElementById('projectNameInput');
+        if (nameInput) {
+          if (currentProjectName) nameInput.value = currentProjectName;
+          nameInput.addEventListener('change', () => {
+            currentProjectName = sanitizeClientProjectName(nameInput.value);
+            localStorage.setItem(PROJECT_NAME_KEY, currentProjectName);
+            scheduleDraftSave();
+          });
+          nameInput.addEventListener('input', scheduleDraftSave);
+        }
+        document.getElementById('projectSaveBtn')?.addEventListener('click', () => saveNamedProject());
+        document.getElementById('projectLoadBtn')?.addEventListener('click', () => {
+          const sel = document.getElementById('projectLoadSelect');
+          loadNamedProject(sel?.value);
+        });
+        document.getElementById('projectLoadSelect')?.addEventListener('change', (e) => {
+          if (e.target.value) loadNamedProject(e.target.value);
+        });
+        document.getElementById('projectNewBtn')?.addEventListener('click', () => newProject());
+        document.getElementById('projectDeleteBtn')?.addEventListener('click', () => deleteNamedProject());
+        document.getElementById('title')?.addEventListener('input', scheduleDraftSave);
+        document.getElementById('resolution')?.addEventListener('change', scheduleDraftSave);
+        projectUiReady = true;
       }
 
       async function fetchJamendoTracks(query) {
@@ -2101,7 +2426,12 @@
         }*/
 
         initTransitions();
-        loadAlbums();
+        wireProjectUi();
+        await loadAlbums();
+        await refreshProjectList();
+        const restored = await restoreDraftIfAny();
+        window.__projectDraftRestored = restored;
+        window.__projectInitDone = true;
       }
 
 
@@ -2148,6 +2478,7 @@
 
           setAlbumMedia(albumMedia);
           document.getElementById('uploadAlbum').value = e.target.value;
+          scheduleDraftSave();
           //await downloadLivePhotoVideos();  // <-- Hier wird sichergestellt, dass die Live-Videos geladen werden
 
         } catch (error) {
@@ -2875,6 +3206,7 @@
 
         updateTimelineDuration();
         timelineMap = buildTimelineMap();
+        scheduleDraftSave();
       }
 
       document.getElementById('clipTrimStartInput').addEventListener('change', (e) => {
@@ -3981,7 +4313,7 @@ function displayTracks(tracks) {
 
 
       init();
-      // 💡 Album-ID aus der URL lesen und automatisch setzen
+      // 💡 Album-ID aus der URL lesen und automatisch setzen (skip if draft restored)
       window.addEventListener("DOMContentLoaded", () => {
         const params = new URLSearchParams(window.location.search);
         const albumId = params.get("albumId");
@@ -3989,8 +4321,12 @@ function displayTracks(tracks) {
         if (albumId) {
           const select = document.getElementById("albumSelect");
 
-          // Warten bis die Alben geladen sind
           const waitForAlbum = setInterval(() => {
+            if (!window.__projectInitDone) return;
+            if (window.__projectDraftRestored) {
+              clearInterval(waitForAlbum);
+              return;
+            }
             if (select && select.options.length > 1) {
               const option = Array.from(select.options).find(opt => opt.value === albumId);
               if (option) {
@@ -4006,31 +4342,7 @@ function displayTracks(tracks) {
         }
       });
 
-      // 💡 Album-ID aus der URL lesen und automatisch setzen
-window.addEventListener("DOMContentLoaded", () => {
-  const params = new URLSearchParams(window.location.search);
-  const albumId = params.get("albumId");
-
-  if (albumId) {
-    const select = document.getElementById("albumSelect");
-
-    // Warten bis die Alben geladen sind
-    const waitForAlbum = setInterval(() => {
-      if (select && select.options.length > 1) {
-        const option = Array.from(select.options).find(opt => opt.value === albumId);
-        if (option) {
-          select.value = albumId;
-          select.dispatchEvent(new Event("change"));
-          console.log("✅ Album auto-selected:", albumId);
-        } else {
-          console.warn("⚠️ Album ID not found in list:", albumId);
-        }
-        clearInterval(waitForAlbum);
-      }
-    }, 200);
-  }
-});
-
+      // Duplicate URL album handler removed — single handler above.
     </script>
 </body>
 

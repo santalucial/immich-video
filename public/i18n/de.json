@@ -39,6 +39,25 @@
     "clip_hint": "Kanten ziehen zum Schneiden · Clip ziehen zum Umsortieren",
     "timeline_zoom": "Timeline-Zoom",
     "timeline_zoom_reset": "Zurücksetzen",
-    "timeline_zoom_hint": "Strg/⌘ + Scroll"
-  }
+    "timeline_zoom_hint": "Strg/⌘ + Scroll",
+    "project_section": "Projekt",
+    "project_name": "Projektname",
+    "project_save": "Speichern",
+    "project_load": "Laden",
+    "project_new": "Neu",
+    "project_delete": "Löschen",
+    "project_load_placeholder": "-- Gespeichertes laden --",
+    "project_draft_saved": "Entwurf gespeichert",
+    "project_draft_restored": "Entwurf wiederhergestellt",
+    "project_saved": "Projekt gespeichert",
+    "project_loaded": "Projekt geladen",
+    "project_deleted": "Projekt gelöscht",
+    "project_new_done": "Neues Projekt",
+    "project_empty_name": "Bitte einen Projektnamen eingeben",
+    "project_pick_load": "Projekt zum Laden auswählen",
+    "project_pick_delete": "Projekt zum Löschen auswählen oder eingeben",
+    "project_delete_confirm": "Dieses gespeicherte Projekt löschen?",
+    "project_new_confirm": "Aktuelle Timeline leeren und neues Projekt starten?",
+    "project_album_warn": "Projekt geladen; Album-Medien konnten nicht aktualisiert werden"
+}
   

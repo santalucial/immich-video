@@ -5,6 +5,7 @@ src/processing/medien/
 temp/
 public/output/
 uploads/
+projects/
 
 # Environment files
 .env

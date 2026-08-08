@@ -111,6 +111,33 @@ if (!fs.existsSync(processingMediaFolder)) {
   console.log('"processing/medien/" created.');
 }
 
+const projectsFolder = path.join(__dirname, '../projects');
+if (!fs.existsSync(projectsFolder)) {
+  fs.mkdirSync(projectsFolder, { recursive: true });
+  console.log('"projects/" created.');
+}
+
+/** Sanitize project name for safe filenames (alphanumeric, _, -; spaces → _). */
+function sanitizeProjectName(raw) {
+  const name = String(raw || '')
+    .trim()
+    .replace(/\s+/g, '_')
+    .replace(/[^a-zA-Z0-9_-]/g, '')
+    .slice(0, 80);
+  return name;
+}
+
+function projectFilePath(name) {
+  const safe = sanitizeProjectName(name);
+  if (!safe) return null;
+  const filePath = path.join(projectsFolder, `${safe}.json`);
+  const resolved = path.resolve(filePath);
+  if (!resolved.startsWith(path.resolve(projectsFolder) + path.sep)) {
+    return null;
+  }
+  return { safe, filePath: resolved };
+}
+
 // Statische Pfade
 const mediaPath = path.join(__dirname, '../medien');
 app.use('/media', express.static(mediaPath));
@@ -586,6 +613,94 @@ app.get('/api/export-progress', (req, res) => {
 
 
 
+
+// Named project save/load (JSON under projects/)
+app.get('/api/projects', (_req, res) => {
+  try {
+    const files = fs.readdirSync(projectsFolder).filter((f) => f.endsWith('.json'));
+    const list = files.map((file) => {
+      const name = path.basename(file, '.json');
+      let updatedAt = null;
+      try {
+        const raw = fs.readFileSync(path.join(projectsFolder, file), 'utf8');
+        const data = JSON.parse(raw);
+        updatedAt = data.updatedAt || null;
+      } catch (_) {
+        /* ignore corrupt */
+      }
+      if (!updatedAt) {
+        try {
+          updatedAt = fs.statSync(path.join(projectsFolder, file)).mtime.toISOString();
+        } catch (_) {
+          updatedAt = null;
+        }
+      }
+      return { name, updatedAt };
+    });
+    list.sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+    res.json(list);
+  } catch (error) {
+    console.error('GET /api/projects - error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/projects/:name', (req, res) => {
+  try {
+    const resolved = projectFilePath(req.params.name);
+    if (!resolved) {
+      return res.status(400).json({ error: 'Invalid project name' });
+    }
+    if (!fs.existsSync(resolved.filePath)) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+    const data = JSON.parse(fs.readFileSync(resolved.filePath, 'utf8'));
+    res.json(data);
+  } catch (error) {
+    console.error('GET /api/projects/:name - error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/projects/:name', (req, res) => {
+  try {
+    const resolved = projectFilePath(req.params.name);
+    if (!resolved) {
+      return res.status(400).json({ error: 'Invalid project name' });
+    }
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const payload = {
+      version: 1,
+      ...body,
+      name: resolved.safe,
+      updatedAt: new Date().toISOString()
+    };
+    fs.writeFileSync(resolved.filePath, JSON.stringify(payload, null, 2), 'utf8');
+    console.log(`PUT /api/projects/${resolved.safe} - saved`);
+    res.json({ success: true, name: resolved.safe, updatedAt: payload.updatedAt });
+  } catch (error) {
+    console.error('PUT /api/projects/:name - error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/projects/:name', (req, res) => {
+  try {
+    const resolved = projectFilePath(req.params.name);
+    if (!resolved) {
+      return res.status(400).json({ error: 'Invalid project name' });
+    }
+    if (!fs.existsSync(resolved.filePath)) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+    fs.unlinkSync(resolved.filePath);
+    console.log(`DELETE /api/projects/${resolved.safe} - deleted`);
+    res.json({ success: true, name: resolved.safe });
+  } catch (error) {
+    console.error('DELETE /api/projects/:name - error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // Listen on :: (dual-stack when available) so both localhost (::1) and 127.0.0.1 work.
 app.listen(port, '::', () => {
