@@ -163,6 +163,62 @@
       box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
     }
 
+    #projectPreviewVideo {
+      background: #000;
+      border: 2px solid #444;
+      display: none;
+      max-width: 600px;
+      max-height: 340px;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+    }
+
+    .project-preview-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: center;
+      margin: 0 20px 12px 20px;
+    }
+
+    .project-preview-controls button {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 8px 14px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .project-preview-controls button:disabled {
+      opacity: 0.45;
+      cursor: default;
+    }
+
+    .project-preview-controls button.secondary {
+      background: #444;
+    }
+
+    #projectPlayTime {
+      font-family: monospace;
+      font-size: 0.95rem;
+      opacity: 0.9;
+      min-width: 11em;
+    }
+
+    .project-preview-note {
+      width: 100%;
+      text-align: center;
+      font-size: 0.8rem;
+      opacity: 0.65;
+      margin: 0;
+    }
+
     #hoverPreviewBox {
       position: absolute;
       bottom: 40px;
@@ -521,6 +577,93 @@
 
     .video-wrapper:hover .video-preview {
       border-color: rgb(47, 255, 0);
+    }
+
+    .video-play-btn {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 36px;
+      height: 36px;
+      border: none;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.7);
+      color: #fff;
+      font-size: 14px;
+      line-height: 1;
+      cursor: pointer;
+      z-index: 6;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0.9;
+      transition: background 0.2s ease, transform 0.2s ease;
+    }
+
+    .video-wrapper:hover .video-play-btn {
+      background: rgba(47, 255, 0, 0.9);
+      color: #111;
+      transform: translate(-50%, -50%) scale(1.05);
+    }
+
+    .video-preview-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 2200;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(0, 0, 0, 0.78);
+    }
+
+    .video-preview-modal.open {
+      display: flex;
+    }
+
+    .video-preview-dialog {
+      position: relative;
+      width: min(960px, 96vw);
+      background: #111;
+      border-radius: 10px;
+      padding: 14px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+    }
+
+    .video-preview-dialog video {
+      width: 100%;
+      max-height: 78vh;
+      background: #000;
+      border-radius: 6px;
+      display: block;
+    }
+
+    .video-preview-close {
+      position: absolute;
+      top: 8px;
+      right: 10px;
+      z-index: 2;
+      border: none;
+      background: rgba(0, 0, 0, 0.55);
+      color: #fff;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .video-preview-status {
+      margin: 8px 4px 0;
+      min-height: 1.2em;
+      font-size: 0.9rem;
+      color: #bbb;
+    }
+
+    #clipPreviewBtn {
+      display: none;
     }
 
     .duration-input {
@@ -951,16 +1094,33 @@
       <!-- Video-Container -->
       <div id="videoContainer">
         <h3 data-i18n="final_video">Final Video</h3>
-        <video id="finalVideo" width="640" controls>
+        <video id="finalVideo" width="640" controls playsinline>
           <source src="" type="video/mp4">
           Your browser does not support this video format.
         </video>
+      </div>
 
+      <div id="videoPreviewModal" class="video-preview-modal" aria-hidden="true">
+        <div class="video-preview-dialog" role="dialog" aria-modal="true" aria-labelledby="videoPreviewTitle">
+          <button type="button" id="videoPreviewClose" class="video-preview-close" aria-label="Close">×</button>
+          <strong id="videoPreviewTitle" data-i18n="preview_video">Preview</strong>
+          <video id="videoPreviewPlayer" controls playsinline></video>
+          <p id="videoPreviewStatus" class="video-preview-status"></p>
+        </div>
       </div>
       <div class="progress-log" id="progressLog"></div>
 
+      <div class="project-preview-controls">
+        <button type="button" id="projectPlayBtn" data-i18n="play_project">▶ Play project</button>
+        <button type="button" id="projectPauseBtn" class="secondary" data-i18n="pause_project" hidden>⏸ Pause</button>
+        <button type="button" id="projectStopBtn" class="secondary" data-i18n="stop_project">⏹ Stop</button>
+        <span id="projectPlayTime">00:00:00 / 00:00:00</span>
+        <p class="project-preview-note" data-i18n="play_project_note">Rough preview (hard cuts). Export still renders final transitions.</p>
+      </div>
+
       <div class="preview-block">
-        <img id="previewFrame" />
+        <img id="previewFrame" alt="" />
+        <video id="projectPreviewVideo" playsinline></video>
       </div>
 
       <div style="position: relative; margin: 20px 0; text-align: center;">
@@ -984,6 +1144,7 @@
           <input type="text" id="clipDurationInput" class="duration-input" placeholder="00:00:00" />
         </label>
         <span id="clipHint" style="opacity:0.7;font-size:0.85rem;" data-i18n="clip_hint">Drag edges to cut · drag clip to reorder</span>
+        <button type="button" id="clipPreviewBtn" data-i18n="preview_video">Preview</button>
         <button type="button" id="clipRemoveBtn" data-i18n="remove_track">Remove</button>
       </div>
       <div id="audioTimeline" class="timeline-layer audio-track-layer"></div>
@@ -1557,6 +1718,8 @@
           previewSizeInput.addEventListener("input", (e) => {
             const value = e.target.value;
             previewFrame.style.maxWidth = `${value}px`;
+            const projectVideo = document.getElementById('projectPreviewVideo');
+            if (projectVideo) projectVideo.style.maxWidth = `${value}px`;
           });
         }
         listenToExportProgress();
@@ -2090,6 +2253,118 @@
         return file ? `/media/${file}` : '';
       }
 
+      function t(key, fallback) {
+        return (typeof translations !== 'undefined' && translations[key]) || fallback;
+      }
+
+      function closeVideoPreview() {
+        const modal = document.getElementById('videoPreviewModal');
+        const player = document.getElementById('videoPreviewPlayer');
+        if (!modal || !player) return;
+        player.pause();
+        player.removeAttribute('src');
+        player.load();
+        delete player.dataset.fallbackTried;
+        modal.classList.remove('open');
+        modal.setAttribute('aria-hidden', 'true');
+        const status = document.getElementById('videoPreviewStatus');
+        if (status) status.textContent = '';
+      }
+
+      function openVideoPreviewShell(title) {
+        const modal = document.getElementById('videoPreviewModal');
+        const titleEl = document.getElementById('videoPreviewTitle');
+        if (titleEl) titleEl.textContent = title || t('preview_video', 'Preview');
+        modal.classList.add('open');
+        modal.setAttribute('aria-hidden', 'false');
+      }
+
+      async function ensureLocalMediaFile(item) {
+        if (!item?.downloadName) {
+          throw new Error(t('preview_failed', 'Could not play this video'));
+        }
+        const res = await fetch('/api/ensureDownloads', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: [item] })
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || t('preview_failed', 'Could not play this video'));
+        }
+        return `/media/${item.downloadName}`;
+      }
+
+      async function playMediaPreview(item, { startMs = 0 } = {}) {
+        if (!item || item.type === 'TRANSITION') return;
+
+        const player = document.getElementById('videoPreviewPlayer');
+        const status = document.getElementById('videoPreviewStatus');
+        const label = item.originalFileName || item.downloadName || t('preview_video', 'Preview');
+        openVideoPreviewShell(label);
+        delete player.dataset.fallbackTried;
+        player.pause();
+        player.removeAttribute('src');
+        player.load();
+        status.textContent = t('preview_loading', 'Loading preview…');
+
+        const startSec = Math.max(0, (startMs || 0) / 1000);
+
+        const attachAndPlay = async (url, statusText) => {
+          status.textContent = statusText;
+          player.src = url;
+          player.load();
+          await new Promise((resolve, reject) => {
+            const onReady = () => {
+              cleanup();
+              resolve();
+            };
+            const onError = () => {
+              cleanup();
+              reject(new Error('media error'));
+            };
+            const cleanup = () => {
+              player.removeEventListener('loadeddata', onReady);
+              player.removeEventListener('canplay', onReady);
+              player.removeEventListener('error', onError);
+            };
+            player.addEventListener('loadeddata', onReady, { once: true });
+            player.addEventListener('canplay', onReady, { once: true });
+            player.addEventListener('error', onError, { once: true });
+          });
+          if (startSec > 0) {
+            try { player.currentTime = startSec; } catch (_) {}
+          }
+          await player.play().catch(() => {});
+          status.textContent = '';
+        };
+
+        // Prefer Immich stream (Range) — no disk download until stream fails.
+        if (item.id) {
+          try {
+            await attachAndPlay(mediaVideoUrl(item), t('preview_streaming', 'Streaming…'));
+            return;
+          } catch (_) {
+            // fall through to download
+          }
+        }
+
+        if (!item.downloadName) {
+          status.textContent = t('preview_failed', 'Could not play this video');
+          return;
+        }
+
+        try {
+          status.textContent = t('preview_downloading', 'Downloading for playback…');
+          const localUrl = await ensureLocalMediaFile(item);
+          player.dataset.fallbackTried = '1';
+          await attachAndPlay(localUrl, t('preview_downloading', 'Downloading for playback…'));
+        } catch (err) {
+          console.error('Preview failed:', err);
+          status.textContent = err.message || t('preview_failed', 'Could not play this video');
+        }
+      }
+
       function renderMediaList() {
         const container = document.getElementById('mediaList');
         container.innerHTML = '';
@@ -2119,7 +2394,7 @@
             const videoContainer = document.createElement('div');
             videoContainer.className = 'video-wrapper';
 
-            // Thumbnail only — avoid streaming every video on hover (major UI lag).
+            // Thumbnail only until the user clicks play (stream on demand).
             const thumb = document.createElement('img');
             thumb.className = 'video-preview thumb';
             thumb.loading = 'lazy';
@@ -2130,6 +2405,21 @@
             thumb.style.borderRadius = '6px';
             thumb.style.boxShadow = '0 0 6px rgba(0, 0, 0, 0.3)';
             videoContainer.appendChild(thumb);
+
+            const playBtn = document.createElement('button');
+            playBtn.type = 'button';
+            playBtn.className = 'video-play-btn';
+            playBtn.title = t('preview_video', 'Preview');
+            playBtn.setAttribute('aria-label', t('preview_video', 'Preview'));
+            playBtn.textContent = '▶';
+            playBtn.addEventListener('click', (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              playMediaPreview(item);
+            });
+            playBtn.addEventListener('mousedown', (event) => event.stopPropagation());
+            playBtn.addEventListener('dragstart', (event) => event.preventDefault());
+            videoContainer.appendChild(playBtn);
 
             const badge = document.createElement('span');
             badge.className = 'video-badge';
@@ -2230,13 +2520,16 @@
           item.originalFileName || item.downloadName || item.type || 'Clip';
         const trimWrap = document.getElementById('clipTrimStartWrap');
         const trimInput = document.getElementById('clipTrimStartInput');
+        const previewBtn = document.getElementById('clipPreviewBtn');
         if (item.type === 'VIDEO') {
           trimWrap.style.display = 'flex';
+          previewBtn.style.display = 'inline-block';
           if (item.trimStartMs == null) item.trimStartMs = 0;
           if (item.sourceDurationMs == null && item.duration) item.sourceDurationMs = item.duration + (item.trimStartMs || 0);
           trimInput.value = formatDuration(item.trimStartMs || 0);
         } else {
           trimWrap.style.display = 'none';
+          previewBtn.style.display = 'none';
         }
         document.getElementById('clipDurationInput').value = formatDuration(item.duration || 5000);
         if (rerender) renderTimeline();
@@ -2487,6 +2780,23 @@
         if (selectedClipIndex < 0) return;
         timelineItems.splice(selectedClipIndex, 1);
         selectClip(-1);
+      });
+
+      document.getElementById('clipPreviewBtn').addEventListener('click', () => {
+        if (selectedClipIndex < 0) return;
+        const item = timelineItems[selectedClipIndex];
+        if (!item || item.type !== 'VIDEO') return;
+        playMediaPreview(item, { startMs: item.trimStartMs || 0 });
+      });
+
+      document.getElementById('videoPreviewClose').addEventListener('click', closeVideoPreview);
+      document.getElementById('videoPreviewModal').addEventListener('click', (e) => {
+        if (e.target.id === 'videoPreviewModal') closeVideoPreview();
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && document.getElementById('videoPreviewModal').classList.contains('open')) {
+          closeVideoPreview();
+        }
       });
 
       function buildTimelineMap() {
@@ -2815,6 +3125,541 @@
       const ctx = canvas ? canvas.getContext('2d') : null;
       const canvasTimeDisplay = document.getElementById('canvasTimeDisplay');
 
+      const projectPlayback = {
+        active: false,
+        paused: false,
+        token: 0,
+        playheadMs: 0,
+        plan: null,
+        clipKey: null,
+        music: [],
+        musicTimers: [],
+        waitTimer: null,
+        waitResolve: null,
+      };
+
+      function buildPlaybackSchedule() {
+        let t = 0;
+        const schedule = [];
+        let lastMedia = null;
+        timelineItems.forEach((item) => {
+          const duration = typeof item.duration === 'number' ? item.duration : 0;
+          if (item.type === 'TRANSITION') {
+            schedule.push({
+              type: 'TRANSITION',
+              start: t,
+              end: t + duration,
+              duration,
+              hold: lastMedia,
+              transition: item.transition
+            });
+          } else {
+            const entry = { ...item, start: t, end: t + duration, duration };
+            schedule.push(entry);
+            lastMedia = item;
+          }
+          t += duration;
+        });
+        return { schedule, totalMs: t };
+      }
+
+      function updateProjectTransportUi() {
+        const playBtn = document.getElementById('projectPlayBtn');
+        const pauseBtn = document.getElementById('projectPauseBtn');
+        const timeEl = document.getElementById('projectPlayTime');
+        const total = projectPlayback.plan?.totalMs || calculateTimelineDuration() || 0;
+        if (timeEl) {
+          timeEl.textContent = `${formatMsToTime(projectPlayback.playheadMs || 0)} / ${formatMsToTime(total)}`;
+        }
+        if (playBtn && pauseBtn) {
+          if (projectPlayback.active && !projectPlayback.paused) {
+            playBtn.hidden = true;
+            pauseBtn.hidden = false;
+            pauseBtn.textContent = t('pause_project', '⏸ Pause');
+          } else if (projectPlayback.active && projectPlayback.paused) {
+            playBtn.hidden = false;
+            pauseBtn.hidden = true;
+            playBtn.textContent = t('resume_project', '▶ Resume');
+          } else {
+            playBtn.hidden = false;
+            pauseBtn.hidden = true;
+            playBtn.textContent = t('play_project', '▶ Play project');
+          }
+        }
+      }
+
+      function drawProjectPlayhead(playheadMs, totalMs) {
+        if (!canvas || !ctx || !totalMs) return;
+        const x = Math.max(0, Math.min(canvas.width, (playheadMs / totalMs) * canvas.width));
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawTimeTicks(totalMs);
+        drawTransitionMarkers(getTransitionMarkers(), totalMs);
+        ctx.fillStyle = '#ff5252';
+        ctx.fillRect(x - 1, 0, 2, canvas.height - 30);
+        if (canvasTimeDisplay) canvasTimeDisplay.textContent = formatTime(playheadMs);
+      }
+
+      function stopProjectMusic() {
+        projectPlayback.musicTimers.forEach((id) => clearTimeout(id));
+        projectPlayback.musicTimers = [];
+        projectPlayback.music.forEach((audio) => {
+          try {
+            audio.pause();
+            audio.removeAttribute('src');
+            audio.load();
+          } catch (_) {}
+        });
+        projectPlayback.music = [];
+      }
+
+      function startProjectMusic(playheadMs) {
+        stopProjectMusic();
+        audioTimeline.forEach((track) => {
+          const src = track.src || track.url;
+          if (!src) return;
+          const startSec = Number(track.start) || 0;
+          const durSec = Number(track.duration) || 0;
+          const playheadSec = playheadMs / 1000;
+          const trackEnd = startSec + durSec;
+          if (playheadSec >= trackEnd) return;
+
+          const audio = new Audio(src);
+          audio.preload = 'auto';
+          audio.volume = track.volume != null ? Number(track.volume) : 0.25;
+          projectPlayback.music.push(audio);
+
+          const begin = () => {
+            const offset = Math.max(0, (projectPlayback.playheadMs / 1000) - startSec);
+            try { audio.currentTime = offset; } catch (_) {}
+            audio.play().catch(() => {});
+            const remainingMs = Math.max(0, (trackEnd - startSec - offset) * 1000);
+            const stopId = setTimeout(() => {
+              try { audio.pause(); } catch (_) {}
+            }, remainingMs + 50);
+            projectPlayback.musicTimers.push(stopId);
+          };
+
+          if (playheadSec >= startSec) {
+            begin();
+          } else {
+            const delay = (startSec - playheadSec) * 1000;
+            const startId = setTimeout(() => {
+              if (!projectPlayback.active || projectPlayback.paused) return;
+              begin();
+            }, delay);
+            projectPlayback.musicTimers.push(startId);
+          }
+        });
+      }
+
+      function pauseProjectMusic() {
+        projectPlayback.music.forEach((audio) => {
+          try { audio.pause(); } catch (_) {}
+        });
+      }
+
+      function resumeProjectMusic() {
+        // Rebuild from current playhead so delayed starts stay correct.
+        startProjectMusic(projectPlayback.playheadMs || 0);
+      }
+
+      function cancelProjectWait() {
+        if (projectPlayback.waitTimer) {
+          clearTimeout(projectPlayback.waitTimer);
+          projectPlayback.waitTimer = null;
+        }
+        if (projectPlayback.waitResolve) {
+          const resolve = projectPlayback.waitResolve;
+          projectPlayback.waitResolve = null;
+          resolve(false);
+        }
+      }
+
+      function waitProjectMs(ms, token) {
+        return new Promise((resolve) => {
+          const start = performance.now();
+          let remaining = ms;
+
+          const finish = (ok) => {
+            projectPlayback.waitTimer = null;
+            projectPlayback.waitResolve = null;
+            resolve(ok);
+          };
+
+          projectPlayback.waitResolve = finish;
+
+          const tick = () => {
+            if (projectPlayback.token !== token || !projectPlayback.active) {
+              finish(false);
+              return;
+            }
+            if (projectPlayback.paused) {
+              projectPlayback.waitTimer = setTimeout(tick, 80);
+              return;
+            }
+            const step = 80;
+            remaining -= step;
+            const elapsed = performance.now() - start;
+            // playhead is advanced by caller via setPlayhead; here we only wait
+            if (remaining <= 0) {
+              finish(true);
+              return;
+            }
+            projectPlayback.waitTimer = setTimeout(tick, Math.min(step, remaining));
+            void elapsed;
+          };
+
+          projectPlayback.waitTimer = setTimeout(tick, Math.min(80, remaining));
+        });
+      }
+
+      function setProjectStageImage(item) {
+        const img = document.getElementById('previewFrame');
+        const video = document.getElementById('projectPreviewVideo');
+        if (!img || !video) return;
+        video.pause();
+        video.style.display = 'none';
+        if (video.src) {
+          video.removeAttribute('src');
+          video.load();
+        }
+        projectPlayback.clipKey = null;
+        img.style.display = 'block';
+        img.src = item
+          ? (mediaPreviewUrl(item) || item.thumbnail || (item.downloadName ? `/media/${item.downloadName}` : ''))
+          : '';
+      }
+
+      async function resolveProjectVideoUrl(item) {
+        if (item.id) {
+          return mediaVideoUrl(item);
+        }
+        if (item.downloadName) {
+          return ensureLocalMediaFile(item);
+        }
+        throw new Error(t('preview_failed', 'Could not play this video'));
+      }
+
+      function waitMediaEvent(el, eventName, token, timeoutMs = 20000) {
+        return new Promise((resolve, reject) => {
+          const onOk = () => { cleanup(); resolve(); };
+          const onErr = () => { cleanup(); reject(new Error('media error')); };
+          const timer = setTimeout(() => { cleanup(); reject(new Error('timeout')); }, timeoutMs);
+          const cleanup = () => {
+            clearTimeout(timer);
+            el.removeEventListener(eventName, onOk);
+            el.removeEventListener('error', onErr);
+          };
+          if (projectPlayback.token !== token || !projectPlayback.active) {
+            cleanup();
+            reject(new Error('cancelled'));
+            return;
+          }
+          el.addEventListener(eventName, onOk, { once: true });
+          el.addEventListener('error', onErr, { once: true });
+        });
+      }
+
+      async function setProjectStageVideo(item, offsetMs, token) {
+        const img = document.getElementById('previewFrame');
+        const video = document.getElementById('projectPreviewVideo');
+        if (!img || !video) return false;
+        img.style.display = 'none';
+        video.style.display = 'block';
+
+        const key = String(item.id || item.downloadName || '');
+        const needLoad = projectPlayback.clipKey !== key || !video.src;
+
+        if (needLoad) {
+          projectPlayback.clipKey = key;
+          let url;
+          try {
+            url = await resolveProjectVideoUrl(item);
+          } catch (_) {
+            // stream missing id path already handled; try download fallback
+            if (item.downloadName) {
+              try { url = await ensureLocalMediaFile(item); }
+              catch (err) { console.warn(err); return false; }
+            } else {
+              return false;
+            }
+          }
+          video.src = url;
+          try {
+            await waitMediaEvent(video, 'loadeddata', token);
+          } catch (_) {
+            if (item.id && item.downloadName) {
+              try {
+                video.src = await ensureLocalMediaFile(item);
+                await waitMediaEvent(video, 'loadeddata', token);
+              } catch (err) {
+                console.warn('Project preview video failed:', err);
+                setProjectStageImage(item);
+                return false;
+              }
+            } else {
+              setProjectStageImage(item);
+              return false;
+            }
+          }
+        }
+
+        if (projectPlayback.token !== token || !projectPlayback.active) return false;
+        const target = Math.max(0, ((item.trimStartMs || 0) + (offsetMs || 0)) / 1000);
+        try {
+          if (Math.abs((video.currentTime || 0) - target) > 0.25) {
+            video.currentTime = target;
+            await waitMediaEvent(video, 'seeked', token, 8000).catch(() => {});
+          }
+        } catch (_) {}
+        return true;
+      }
+
+      function setPlayheadMs(ms, totalMs) {
+        projectPlayback.playheadMs = Math.max(0, ms);
+        updateProjectTransportUi();
+        drawProjectPlayhead(projectPlayback.playheadMs, totalMs || projectPlayback.plan?.totalMs || 1);
+      }
+
+      async function playVideoSegment(entry, offsetMs, token) {
+        const video = document.getElementById('projectPreviewVideo');
+        const ok = await setProjectStageVideo(entry, offsetMs, token);
+        if (!ok || projectPlayback.token !== token || !projectPlayback.active) return false;
+
+        const trimStartSec = (entry.trimStartMs || 0) / 1000;
+        const endSec = trimStartSec + (entry.duration || 0) / 1000;
+        const totalMs = projectPlayback.plan.totalMs;
+
+        await video.play().catch(() => {});
+
+        return await new Promise((resolve) => {
+          const onTime = () => {
+            if (projectPlayback.token !== token || !projectPlayback.active) {
+              cleanup();
+              resolve(false);
+              return;
+            }
+            if (projectPlayback.paused) {
+              video.pause();
+              return;
+            }
+            if (video.paused) {
+              video.play().catch(() => {});
+            }
+            const localMs = Math.max(0, (video.currentTime - trimStartSec) * 1000);
+            setPlayheadMs(entry.start + Math.min(localMs, entry.duration || 0), totalMs);
+            if (video.currentTime >= endSec - 0.05 || video.ended) {
+              cleanup();
+              video.pause();
+              setPlayheadMs(entry.end, totalMs);
+              resolve(true);
+            }
+          };
+          const onEnded = () => {
+            cleanup();
+            setPlayheadMs(entry.end, totalMs);
+            resolve(true);
+          };
+          const pausePoll = setInterval(() => {
+            if (projectPlayback.token !== token || !projectPlayback.active) {
+              cleanup();
+              resolve(false);
+              return;
+            }
+            if (projectPlayback.paused) {
+              video.pause();
+            } else if (video.paused) {
+              video.play().catch(() => {});
+            }
+          }, 120);
+          const cleanup = () => {
+            clearInterval(pausePoll);
+            video.removeEventListener('timeupdate', onTime);
+            video.removeEventListener('ended', onEnded);
+          };
+          video.addEventListener('timeupdate', onTime);
+          video.addEventListener('ended', onEnded);
+        });
+      }
+
+      async function playHoldSegment(startMs, endMs, token) {
+        const totalMs = projectPlayback.plan.totalMs;
+        let cursor = startMs;
+        setPlayheadMs(cursor, totalMs);
+        while (cursor < endMs) {
+          if (projectPlayback.token !== token || !projectPlayback.active) return false;
+          if (projectPlayback.paused) {
+            await waitProjectMs(100, token);
+            continue;
+          }
+          const step = Math.min(100, endMs - cursor);
+          const ok = await waitProjectMs(step, token);
+          if (!ok) return false;
+          cursor += step;
+          setPlayheadMs(Math.min(cursor, endMs), totalMs);
+        }
+        setPlayheadMs(endMs, totalMs);
+        return true;
+      }
+
+      async function playStillSegment(displayItem, startMs, endMs, token) {
+        setProjectStageImage(displayItem);
+        return playHoldSegment(startMs, endMs, token);
+      }
+
+      async function runProjectPlayback(fromMs = 0) {
+        const plan = buildPlaybackSchedule();
+        if (!plan.schedule.length || plan.totalMs <= 0) {
+          alert(t('play_project_empty', 'Add media to the timeline first'));
+          return;
+        }
+
+        projectPlayback.token += 1;
+        const token = projectPlayback.token;
+        projectPlayback.plan = plan;
+        projectPlayback.active = true;
+        projectPlayback.paused = false;
+        projectPlayback.clipKey = null;
+        cancelProjectWait();
+
+        const startMs = Math.max(0, Math.min(fromMs, Math.max(0, plan.totalMs - 1)));
+        setPlayheadMs(startMs, plan.totalMs);
+        updateProjectTransportUi();
+        startProjectMusic(startMs);
+
+        let idx = plan.schedule.findIndex((s) => startMs >= s.start && startMs < s.end);
+        if (idx < 0) idx = startMs >= plan.totalMs ? plan.schedule.length : 0;
+
+        for (; idx < plan.schedule.length; idx++) {
+          if (projectPlayback.token !== token || !projectPlayback.active) return;
+          const entry = plan.schedule[idx];
+          // Seek offset only applies to the segment that contains the start position.
+          const offset = (entry.start <= startMs && startMs < entry.end) ? (startMs - entry.start) : 0;
+
+          if (entry.type === 'VIDEO') {
+            const ok = await playVideoSegment(entry, offset, token);
+            if (projectPlayback.token !== token || !projectPlayback.active) return;
+            if (!ok) {
+              const stillOk = await playStillSegment(entry, entry.start + offset, entry.end, token);
+              if (!stillOk) return;
+            } else {
+              setPlayheadMs(entry.end, plan.totalMs);
+            }
+          } else if (entry.type === 'IMAGE') {
+            const ok = await playStillSegment(entry, entry.start + offset, entry.end, token);
+            if (!ok) return;
+          } else if (entry.type === 'TRANSITION') {
+            const hold = entry.hold;
+            if (hold?.type === 'VIDEO') {
+              await setProjectStageVideo(hold, Math.max(0, (hold.duration || 0) - 80), token);
+              const video = document.getElementById('projectPreviewVideo');
+              if (video) video.pause();
+              const ok = await playHoldSegment(entry.start + offset, entry.end, token);
+              if (!ok) return;
+            } else {
+              const ok = await playStillSegment(hold || null, entry.start + offset, entry.end, token);
+              if (!ok) return;
+            }
+          }
+        }
+
+        if (projectPlayback.token === token) {
+          stopProjectPlayback(true);
+        }
+      }
+
+      function stopProjectPlayback(completed = false) {
+        projectPlayback.active = false;
+        projectPlayback.paused = false;
+        projectPlayback.token += 1;
+        cancelProjectWait();
+        stopProjectMusic();
+        const video = document.getElementById('projectPreviewVideo');
+        if (video) {
+          video.pause();
+        }
+        if (completed && projectPlayback.plan) {
+          setPlayheadMs(projectPlayback.plan.totalMs, projectPlayback.plan.totalMs);
+        }
+        updateProjectTransportUi();
+      }
+
+      function pauseProjectPlayback() {
+        if (!projectPlayback.active || projectPlayback.paused) return;
+        projectPlayback.paused = true;
+        const video = document.getElementById('projectPreviewVideo');
+        if (video) video.pause();
+        pauseProjectMusic();
+        updateProjectTransportUi();
+      }
+
+      function resumeProjectPlayback() {
+        if (!projectPlayback.active || !projectPlayback.paused) return;
+        projectPlayback.paused = false;
+        resumeProjectMusic();
+        updateProjectTransportUi();
+        const video = document.getElementById('projectPreviewVideo');
+        if (video && video.style.display !== 'none' && video.src) {
+          video.play().catch(() => {});
+        }
+      }
+
+      function seekProjectPlayback(ms) {
+        const wasPlaying = projectPlayback.active && !projectPlayback.paused;
+        stopProjectPlayback(false);
+        const plan = buildPlaybackSchedule();
+        projectPlayback.plan = plan;
+        setPlayheadMs(ms, plan.totalMs);
+        const entry = plan.schedule.find((s) => ms >= s.start && ms < s.end);
+        if (entry) {
+          if (entry.type === 'VIDEO') {
+            setProjectStageVideo(entry, ms - entry.start, projectPlayback.token).then((ok) => {
+              const video = document.getElementById('projectPreviewVideo');
+              if (ok && video) video.pause();
+            });
+          } else if (entry.type === 'IMAGE') {
+            setProjectStageImage(entry);
+          } else {
+            setProjectStageImage(entry.hold || null);
+          }
+        }
+        if (wasPlaying) {
+          runProjectPlayback(ms);
+        }
+      }
+
+      document.getElementById('projectPlayBtn').addEventListener('click', () => {
+        if (projectPlayback.active && projectPlayback.paused) {
+          resumeProjectPlayback();
+          return;
+        }
+        const from = projectPlayback.playheadMs > 0
+          && projectPlayback.plan
+          && projectPlayback.playheadMs < projectPlayback.plan.totalMs - 200
+          ? projectPlayback.playheadMs
+          : 0;
+        runProjectPlayback(from);
+      });
+      document.getElementById('projectPauseBtn').addEventListener('click', () => {
+        pauseProjectPlayback();
+      });
+      document.getElementById('projectStopBtn').addEventListener('click', () => {
+        stopProjectPlayback(false);
+        setPlayheadMs(0, buildPlaybackSchedule().totalMs || calculateTimelineDuration());
+        const img = document.getElementById('previewFrame');
+        const video = document.getElementById('projectPreviewVideo');
+        if (video) {
+          video.pause();
+          video.style.display = 'none';
+          video.removeAttribute('src');
+          video.load();
+        }
+        if (img) img.style.display = 'block';
+        projectPlayback.clipKey = null;
+        projectPlayback.playheadMs = 0;
+        updateProjectTransportUi();
+      });
+
       function toggleSidebar() {
   const sidebar = document.querySelector('.sidebar');
   const container = document.querySelector('.container');
@@ -2909,28 +3754,41 @@ function displayTracks(tracks) {
       let scrubToken = 0;
 
       function showPreviewAt(x) {
-        if (!canvas || !ctx || !timelineMap.length) return;
+        if (!canvas || !ctx) return;
+        if (projectPlayback.active && !projectPlayback.paused) return;
 
-        const totalDuration = timelineMap.at(-1)?.end || 0;
+        const plan = projectPlayback.plan || buildPlaybackSchedule();
+        const totalDuration = plan.totalMs || timelineMap.at(-1)?.end || 0;
         if (!totalDuration) return;
         const timeInMs = (x / canvas.width) * totalDuration;
         canvasTimeDisplay.textContent = formatTime(timeInMs);
+        projectPlayback.playheadMs = timeInMs;
+        updateProjectTransportUi();
 
-        const current = timelineMap.find(item => timeInMs >= item.start && timeInMs < item.end);
+        const current = (plan.schedule || timelineMap).find(item => timeInMs >= item.start && timeInMs < item.end);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         drawTimeTicks(totalDuration);
         drawTransitionMarkers(getTransitionMarkers(), totalDuration);
         ctx.fillStyle = 'red';
         ctx.fillRect(x, 0, 2, canvas.height - 30);
 
-        const previewFrame = document.getElementById('previewFrame');
         if (!current) return;
 
-        // Fast path: always show Immich/local thumbnail while scrubbing (no video decode).
-        previewFrame.src = current.id
-          ? `/api/immich/thumbnail/${current.id}`
-          : (current.thumbnail || `/media/${current.downloadName}`);
-        previewFrame.style.display = 'block';
+        if (current.type === 'VIDEO') {
+          setProjectStageVideo(current, timeInMs - current.start, projectPlayback.token).then((ok) => {
+            const video = document.getElementById('projectPreviewVideo');
+            if (ok && video) video.pause();
+          });
+          return;
+        }
+
+        if (current.type === 'TRANSITION') {
+          setProjectStageImage(current.hold || null);
+          return;
+        }
+
+        // Fast path: Immich/local thumbnail for images.
+        setProjectStageImage(current);
       }
 
       function drawTimeTicks(totalDurationMs) {
@@ -2957,6 +3815,7 @@ function displayTracks(tracks) {
 
       if (canvas) {
         canvas.addEventListener('mousemove', (e) => {
+          if (projectPlayback.active && !projectPlayback.paused) return;
           const rect = canvas.getBoundingClientRect();
           lastPreviewX = e.clientX - rect.left;
           if (previewRaf) return;
@@ -2965,6 +3824,19 @@ function displayTracks(tracks) {
             showPreviewAt(lastPreviewX);
           });
         });
+        canvas.addEventListener('click', (e) => {
+          const rect = canvas.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          const plan = buildPlaybackSchedule();
+          if (!plan.totalMs) return;
+          const ms = (x / canvas.width) * plan.totalMs;
+          if (projectPlayback.active) {
+            seekProjectPlayback(ms);
+          } else {
+            showPreviewAt(x);
+          }
+        });
+        canvas.style.cursor = 'pointer';
       }
 
 

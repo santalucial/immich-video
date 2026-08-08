@@ -116,7 +116,8 @@ const mediaPath = path.join(__dirname, '../medien');
 app.use('/media', express.static(mediaPath));
 console.log("Media path:", mediaPath);
 
-const outputPath = path.join(__dirname, '..');
+const outputPath = path.join(__dirname, '../public/output');
+if (!fs.existsSync(outputPath)) fs.mkdirSync(outputPath, { recursive: true });
 app.use('/output', express.static(outputPath));
 console.log("Output path:", outputPath);
 
@@ -365,6 +366,9 @@ app.post('/api/export', async (req, res) => {
         if (jobs.length) {
           const result = await downloadAssetsLimited(jobs);
           sendProgressUpdate(`⬇️ Downloads done (${result.done}, failed ${result.failed})`);
+          if (result.failed > 0) {
+            sendProgressUpdate(`⚠️ ${result.failed} download(s) failed — export may abort if those clips are required.`);
+          }
         }
         const outputFile = await generateFinalVideo(exportData, outputPath, sendProgressUpdate);
         console.log("POST /api/export - final video created:", outputFile);

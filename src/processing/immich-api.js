@@ -29,6 +29,64 @@ async function mapWithConcurrency(items, concurrency, worker) {
     return results;
 }
 
+/** True when path exists and has content (0-byte stubs from failed downloads are not usable). */
+function isUsableLocalFile(filePath) {
+    try {
+        return fs.existsSync(filePath) && fs.statSync(filePath).size > 0;
+    } catch {
+        return false;
+    }
+}
+
+function removeIfExists(filePath) {
+    try {
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    } catch (err) {
+        console.warn(`Could not remove ${filePath}:`, err.message);
+    }
+}
+
+/**
+ * Stream Immich original to disk atomically (temp + rename).
+ * Rejects empty responses so we never leave 0-byte placeholders that skip future downloads.
+ */
+async function streamDownloadToFile(url, savePath) {
+    const dir = path.dirname(savePath);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+    const tempPath = `${savePath}.part`;
+    removeIfExists(tempPath);
+
+    try {
+        const response = await axios.get(url, {
+            headers: { 'x-api-key': API_KEY },
+            responseType: 'stream',
+            timeout: DOWNLOAD_TIMEOUT_MS,
+        });
+
+        const writer = fs.createWriteStream(tempPath);
+        response.data.pipe(writer);
+
+        await new Promise((resolve, reject) => {
+            writer.on('finish', resolve);
+            writer.on('error', reject);
+            response.data.on('error', reject);
+        });
+
+        const size = fs.statSync(tempPath).size;
+        if (size <= 0) {
+            throw new Error(`Downloaded empty file from ${url}`);
+        }
+
+        removeIfExists(savePath);
+        fs.renameSync(tempPath, savePath);
+        return savePath;
+    } catch (error) {
+        removeIfExists(tempPath);
+        throw error;
+    }
+}
+
 async function fetchAlbumAssets(albumId) {
     const assets = [];
     let page = 1;
@@ -99,32 +157,20 @@ module.exports = {
     downloadLivePhotoVideo: async (videoId, savePath) => {
       console.log(`Downloading live video: ${videoId}`);
 
-      if (fs.existsSync(savePath)) {
+      if (isUsableLocalFile(savePath)) {
           return savePath;
+      }
+      if (fs.existsSync(savePath)) {
+          console.warn(`Removing empty/corrupt stub: ${savePath}`);
+          removeIfExists(savePath);
       }
 
       try {
-          const response = await axios.get(`${IMMICH_API}/assets/${videoId}/original`, {
-              headers: { 'x-api-key': API_KEY },
-              responseType: 'stream',
-              timeout: DOWNLOAD_TIMEOUT_MS,
-          });
-
-          const writer = fs.createWriteStream(savePath);
-          response.data.pipe(writer);
-
-          await new Promise((resolve, reject) => {
-              writer.on('finish', resolve);
-              writer.on('error', reject);
-              response.data.on('error', reject);
-          });
-
+          await streamDownloadToFile(`${IMMICH_API}/assets/${videoId}/original`, savePath);
           console.log(`Live photo video saved: ${savePath}`);
           return savePath;
       } catch (error) {
-          if (fs.existsSync(savePath)) {
-              fs.unlinkSync(savePath);
-          }
+          removeIfExists(savePath);
           console.error(`Error downloading live photo video ${videoId}:`, error.message);
           if (error.response) {
               console.error("Status:", error.response.status);
@@ -153,29 +199,20 @@ module.exports = {
     },
 
     downloadAsset: async (asset, filename) => {
-        if (fs.existsSync(filename)) {
+        if (isUsableLocalFile(filename)) {
             console.log(`Asset already exists: ${filename}`);
             return;
+        }
+        if (fs.existsSync(filename)) {
+            console.warn(`Removing empty/corrupt stub: ${filename}`);
+            removeIfExists(filename);
         }
 
         console.log("Saving asset to:", filename);
         try {
-            const response = await axios.get(`${IMMICH_API}/assets/${asset.id}/original`, {
-                headers: { 'x-api-key': API_KEY },
-                responseType: 'stream',
-                timeout: DOWNLOAD_TIMEOUT_MS,
-            });
-            const writer = fs.createWriteStream(filename);
-            response.data.pipe(writer);
-            await new Promise((resolve, reject) => {
-                writer.on('finish', resolve);
-                writer.on('error', reject);
-                response.data.on('error', reject);
-            });
+            await streamDownloadToFile(`${IMMICH_API}/assets/${asset.id}/original`, filename);
         } catch (error) {
-            if (fs.existsSync(filename)) {
-                fs.unlinkSync(filename);
-            }
+            removeIfExists(filename);
             console.error("Error downloading asset:", error.message);
             throw error;
         }

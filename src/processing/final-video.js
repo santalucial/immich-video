@@ -248,6 +248,21 @@ if (clipJobs.length === 0) {
 
 progressCallback(`⚙️ Encoding ${clipJobs.length} clip(s) (concurrency ${CLIP_CONCURRENCY})…`);
 
+const missing = clipJobs.filter((job) => {
+  try {
+    return !fs.existsSync(job.inputPath) || fs.statSync(job.inputPath).size <= 0;
+  } catch {
+    return true;
+  }
+});
+if (missing.length) {
+  const names = missing.slice(0, 5).map((j) => j.asset.downloadName).join(', ');
+  const more = missing.length > 5 ? ` (+${missing.length - 5} more)` : '';
+  throw new Error(
+    `Media not downloaded or empty (${missing.length}): ${names}${more}. Re-run export after Immich downloads succeed.`
+  );
+}
+
 const processedClips = await mapWithConcurrency(clipJobs, CLIP_CONCURRENCY, async (job) => {
   const { asset, inputPath, clipOutput, durationMs, durationSec, trimStartSec, videoIndex } = job;
   progressCallback(`⚙️ Processing clip ${videoIndex + 1}/${clipJobs.length}: ${asset.downloadName}`);
