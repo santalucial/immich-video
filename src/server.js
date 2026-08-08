@@ -4,6 +4,8 @@ const fs = require('fs');
 const axios = require('axios');
 const dotenv = require('dotenv');
 const FormData = require('form-data');
+const multer = require('multer');
+const { execSync } = require('child_process');
 const { generateVideo } = require('./processing/main-process');
 const { generateTitleOnly } = require('./processing/titel-generator');
 const { createIntroClip } = require('./processing/intro');
@@ -23,6 +25,72 @@ const port = process.env.PORT || 3001;
 // Middleware
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
+
+const uploadsAudioDir = path.join(__dirname, '../uploads/audio');
+if (!fs.existsSync(uploadsAudioDir)) {
+  fs.mkdirSync(uploadsAudioDir, { recursive: true });
+  console.log('"uploads/audio/" created.');
+}
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
+const AUDIO_EXTS = new Set(['.mp3', '.wav', '.m4a', '.ogg', '.aac']);
+const audioUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, uploadsAudioDir),
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname).toLowerCase() || '.mp3';
+      const base = path.basename(file.originalname, path.extname(file.originalname))
+        .replace(/[^a-zA-Z0-9_-]+/g, '_')
+        .slice(0, 64) || 'audio';
+      cb(null, `${Date.now()}_${base}${ext}`);
+    }
+  }),
+  limits: { fileSize: 50 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (AUDIO_EXTS.has(ext)) cb(null, true);
+    else cb(new Error('Unsupported audio format. Use mp3, wav, m4a, ogg, or aac.'));
+  }
+});
+
+function probeAudioDurationSec(filePath) {
+  try {
+    const output = execSync(
+      `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${filePath}"`
+    );
+    const sec = parseFloat(output.toString().trim());
+    return Number.isFinite(sec) ? sec : 10;
+  } catch (err) {
+    console.warn('ffprobe duration failed:', err.message);
+    return 10;
+  }
+}
+
+app.post('/api/upload-audio', (req, res) => {
+  audioUpload.single('file')(req, res, (err) => {
+    if (err) {
+      console.error('POST /api/upload-audio - upload error:', err.message);
+      return res.status(400).json({ error: err.message });
+    }
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'No audio file uploaded' });
+      }
+      const duration = probeAudioDurationSec(req.file.path);
+      const url = `/uploads/audio/${req.file.filename}`;
+      console.log(`POST /api/upload-audio - saved ${req.file.filename} (${duration.toFixed(2)}s)`);
+      res.json({
+        id: req.file.filename,
+        url,
+        filename: req.file.originalname,
+        duration
+      });
+    } catch (error) {
+      console.error('POST /api/upload-audio - error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+});
 
 // Ordnerstruktur
 const mediaFolder = path.join('medien');
@@ -253,34 +321,58 @@ app.post('/api/intro', async (req, res) => {
 app.post('/api/export', async (req, res) => {
   console.log("POST /api/export - Request Body:", req.body);
   try {
-    // Die exportData wird jetzt direkt aus req.body gelesen
     const exportData = {
       title: req.body.title,
       media: req.body.media,
-      resolution: req.body.resolution, //  Auflösung hinzufügen
-      audio: req.body.audio // 🔥 das hat gefehlt!
+      resolution: req.body.resolution,
+      audio: req.body.audio
     };
     if (exportData.audio && Array.isArray(exportData.audio)) {
       console.log(`🎧 Audio received – count: ${exportData.audio.length}`);
-      exportData.audio.forEach((track, i) => {
-        console.log(`  ▶️ [${i}] Title: ${track.title}`);
-        console.log(`     URL: ${track.url}`);
-      });
     } else {
       console.log('🚫 No audio included in export request.');
     }
 
-    // Hier den gewünschten Outputnamen generieren
     let outputFileName = exportData.title ? exportData.title : 'final-video';
     outputFileName = outputFileName.replace(/[^a-zA-Z0-9]+/g, '_');
     outputFileName = `${outputFileName}.mp4`;
-    const outputPath = path.join(__dirname, '../public/output', outputFileName);
+    const outputDir = path.join(__dirname, '../public/output');
+    if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+    const outputPath = path.join(outputDir, outputFileName);
+    const jobId = `export_${Date.now()}`;
 
-    // Übergabe von exportData statt req.body
-    // Wir übergeben jetzt exportData und outputPath
-    const outputFile = await generateFinalVideo(exportData, outputPath, sendProgressUpdate);
-    console.log("POST /api/export - final video created:", outputFile);
-    res.json({ success: true, file: outputFile });
+    // Return immediately — download + encode in background; completion via SSE
+    res.json({ success: true, started: true, jobId, file: outputPath });
+
+    setImmediate(async () => {
+      try {
+        sendProgressUpdate(`🚀 Background export started (${jobId})…`);
+        sendProgressUpdate(`⬇️ Ensuring media downloads…`);
+        const { downloadAssetsLimited } = require('./processing/immich-api');
+        const downloadFolder = path.join(__dirname, '../medien');
+        if (!fs.existsSync(downloadFolder)) fs.mkdirSync(downloadFolder, { recursive: true });
+        const jobs = (exportData.media || [])
+          .filter((item) => item?.downloadName && item.type !== 'TRANSITION')
+          .map((item) => {
+            const filename = path.join(downloadFolder, item.downloadName);
+            if (item.isLivePhoto || item.livePhotoVideoId) {
+              return { videoId: item.livePhotoVideoId || item.id, filename };
+            }
+            if (!item.id) return null;
+            return { asset: { id: item.id }, filename };
+          })
+          .filter(Boolean);
+        if (jobs.length) {
+          const result = await downloadAssetsLimited(jobs);
+          sendProgressUpdate(`⬇️ Downloads done (${result.done}, failed ${result.failed})`);
+        }
+        const outputFile = await generateFinalVideo(exportData, outputPath, sendProgressUpdate);
+        console.log("POST /api/export - final video created:", outputFile);
+      } catch (error) {
+        console.error("POST /api/export - background error:", error);
+        sendProgressUpdate(`❌ Export failed: ${error.message}`);
+      }
+    });
   } catch (error) {
     console.error("POST /api/export - error:", error);
     res.status(500).send(error.message);
@@ -458,6 +550,8 @@ function sendProgressUpdate(message) {
   });
 }
 
+module.exports = { sendProgressUpdate };
+
 
 // Fortschritt-Sender global speichern
 let currentExportClients = [];
@@ -485,6 +579,8 @@ app.get('/api/export-progress', (req, res) => {
 
 
 
-app.listen(port, '0.0.0.0', () => {
-  console.log(`Server running at http://127.0.0.1:${port}`);
+// Listen on :: (dual-stack when available) so both localhost (::1) and 127.0.0.1 work.
+app.listen(port, '::', () => {
+  console.log(`Server running at http://localhost:${port}`);
+  console.log(`Also reachable at http://127.0.0.1:${port}`);
 });

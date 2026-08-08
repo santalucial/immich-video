@@ -1,9 +1,9 @@
 const fs = require('fs');
 const path = require('path');
-const ffmpeg = require('fluent-ffmpeg');
 const { fetchAlbum, downloadAsset } = require('./immich-api');
 const FormData = require('form-data');
 const axios = require('axios');
+require('./ffmpeg-utils'); // configures fluent-ffmpeg path
 
 //.env
 const GOOGLE_TRANSLATE_KEY = process.env.GOOGLE_TRANSLATE_KEY;
@@ -12,9 +12,6 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 // Pfade
 const mediaFolder = path.join(__dirname, '../medien');
 const tempFolder = path.join(__dirname, '../../temp');
-
-// FFmpeg Konfiguration
-ffmpeg.setFfmpegPath('/usr/bin/ffmpeg');
 
 module.exports = {
   generateVideo: async (options) => {

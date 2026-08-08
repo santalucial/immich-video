@@ -28,14 +28,21 @@ Media can be easily arranged in an intuitive drag-and-drop timeline.
 - Duration can be individually adjusted per clip
 - Live Photos automatically use their video duration
 
+### ✂️ Video Trim
+- Set in-point (start) and duration on video clips in the timeline
+- Export applies FFmpeg `-ss` / `-t` so only the selected range is rendered
+
 ### 🔀 Dynamic Transition Effects
 - Supported transitions: `fade`, `wipeleft`, `slideright`, `circleopen`, `circleclose`, `pixelize`
 - Transition duration and timing are automatically calculated based on actual clip lengths
 - No manual offset handling required
 
-### 🎵 Preserve Original Audio
-- Video and Live Photo audio is preserved
-- Missing audio tracks are filled with silence
+### 🎵 Music on the Timeline
+- Search Jamendo tracks or upload your own files (`mp3`, `wav`, `m4a`, `ogg`, `aac`)
+- Drag blocks to place them in time; resize the right edge to shorten playback
+- Per-track volume control
+- Original video/Live Photo audio is preserved and mixed with music
+- Missing clip audio tracks are filled with silence
 
 ### 🧐 Local AI-Powered Title Generation
 - `blip-caption:latest` for image captions
@@ -95,7 +102,6 @@ After setup available at:
 - 📍 BLIP-Caption: http://localhost:5000/caption
 
 ## 🛠️ Planned / TODO
-- 🎵 Auto-generate music using AI
 - 🔍 Timeline zoom and snapping
 - ↩️ Undo/Redo timeline actions
 - 👤 User session & album management
@@ -132,13 +138,20 @@ Die Übersetzungen liegen im Verzeichnis:
 - Dauer kann pro Clip individuell angepasst werden
 - Live-Fotos erhalten automatisch ihre Video-Dauer
 
+### ✂️ Video-Zuschnitt
+- Startpunkt und Dauer für Videoclips direkt in der Timeline setzen
+- Export wendet FFmpeg `-ss` / `-t` an und rendert nur den gewählten Ausschnitt
+
 ### 🔀 Dynamische Übergangseffekte
 - Unterstützte Effekte: `fade`, `wipeleft`, `slideright`, `circleopen`, `circleclose`, `pixelize`
 - Übergangsdauer und Startzeit werden automatisch basierend auf den echten Clip-Längen berechnet
 - Keine manuelle Zeitsetzung erforderlich
 
-### 🎵 Originalton bleibt erhalten
-- Audio von Videos und Live-Fotos wird automatisch beibehalten
+### 🎵 Musik auf der Timeline
+- Jamendo-Suche oder eigene Dateien hochladen (`mp3`, `wav`, `m4a`, `ogg`, `aac`)
+- Blöcke verschieben und am rechten Rand kürzen
+- Lautstärke pro Track
+- Originalton von Videos/Live-Fotos bleibt erhalten und wird mit der Musik gemischt
 - Fehlende Audiospuren werden mit Stille ergänzt
 
 ### 🧐 Lokale KI-Titelgenerierung
@@ -198,7 +211,6 @@ Nach dem Setup erreichbar unter:
 - 📍 BLIP-Caption: http://localhost:5000/caption
 
 ## 🛠️ Noch geplant / TODO
-- 🎵 Automatische Musikgenerierung mit KI
 - 🔍 Timeline-Zoom und Snap-Funktion
 - ↩️ Undo/Redo für Timeline-Aktionen
 - 👤 Benutzer-Session & Albumverwaltung

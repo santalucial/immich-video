@@ -17,5 +17,13 @@
     "transitions": "Transitions",
     "add_random_transitions": "Add All with Random Transitions",
     "add_all_media": "Add All Media",
-    "total_duration": "Total Duration: "
+    "total_duration": "Total Duration: ",
+    "music_search": "Music Search",
+    "upload_music": "Upload music",
+    "volume": "Volume",
+    "start": "Start",
+    "duration_label": "Duration",
+    "trim_start": "Trim start",
+    "remove_track": "Remove",
+    "clip_hint": "Drag edges to cut · drag clip to reorder"
 }

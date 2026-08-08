@@ -1,9 +1,47 @@
 // ffmpeg-utils.js
+const fs = require('fs');
+const { execSync } = require('child_process');
 const ffmpeg = require('fluent-ffmpeg');
+
+function resolveBinary(envKey, binaryName, candidates) {
+  const fromEnv = process.env[envKey];
+  if (fromEnv && fs.existsSync(fromEnv)) {
+    return fromEnv;
+  }
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  try {
+    const found = execSync(`command -v ${binaryName}`, { encoding: 'utf8' }).trim();
+    if (found) return found;
+  } catch {
+    // fall through
+  }
+
+  return binaryName;
+}
+
+const FFMPEG_PATH = resolveBinary('FFMPEG_PATH', 'ffmpeg', [
+  '/opt/homebrew/bin/ffmpeg',
+  '/usr/local/bin/ffmpeg',
+  '/usr/bin/ffmpeg',
+]);
+
+const FFPROBE_PATH = resolveBinary('FFPROBE_PATH', 'ffprobe', [
+  '/opt/homebrew/bin/ffprobe',
+  '/usr/local/bin/ffprobe',
+  '/usr/bin/ffprobe',
+]);
+
+ffmpeg.setFfmpegPath(FFMPEG_PATH);
+ffmpeg.setFfprobePath(FFPROBE_PATH);
 
 function runFFmpegCommand(inputPath, outputPath, options = {}) {
   return new Promise((resolve, reject) => {
-    // Erstelle den ffmpeg-Befehl
     const command = inputPath ? ffmpeg(inputPath) : ffmpeg();
 
     if (options.inputOptions) {
@@ -30,7 +68,6 @@ function runFFmpegCommand(inputPath, outputPath, options = {}) {
       command.outputOptions(options.outputOptions);
     }
 
-    // Starte ffmpeg
     command
       .save(outputPath)
       .on('start', (commandLine) => {
@@ -51,4 +88,4 @@ function runFFmpegCommand(inputPath, outputPath, options = {}) {
   });
 }
 
-module.exports = { runFFmpegCommand };
+module.exports = { runFFmpegCommand, FFMPEG_PATH, FFPROBE_PATH };

@@ -3,7 +3,7 @@
 
 <head>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
-    integrity="sha512-..." crossorigin="anonymous" referrerpolicy="no-referrer" />
+    crossorigin="anonymous" referrerpolicy="no-referrer" />
   <meta charset="UTF-8">
   <title>Video Editor</title>
   <style>
@@ -212,55 +212,240 @@
 
     .audio-track-layer {
       position: relative;
-      height: 40px;
+      height: 56px;
       background-color: #222;
-      margin-top: 10px;
+      margin: 10px 20px 20px 20px;
+      border-radius: 6px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      border: 1px dashed #555;
     }
 
     .audio-block {
       position: absolute;
-      height: 100%;
+      top: 4px;
+      height: calc(100% - 8px);
       background-color: #5ecbff;
-      color: white;
-      font-size: 12px;
-      padding: 2px;
+      color: #062033;
+      font-size: 11px;
+      padding: 4px 18px 4px 6px;
       box-sizing: border-box;
       border-radius: 4px;
+      cursor: grab;
+      user-select: none;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      border: 2px solid transparent;
+    }
+
+    .audio-block.selected {
+      border-color: #fff;
+      box-shadow: 0 0 0 1px #5ecbff;
+    }
+
+    .audio-block .audio-resize {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 10px;
+      height: 100%;
+      cursor: ew-resize;
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    .audio-block .audio-remove {
+      position: absolute;
+      top: 2px;
+      right: 12px;
+      border: none;
+      background: rgba(0, 0, 0, 0.45);
+      color: #fff;
+      font-size: 10px;
+      line-height: 1;
+      padding: 2px 4px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+
+    .audio-inspector {
+      display: none;
+      margin: 0 20px 16px 20px;
+      padding: 10px 12px;
+      background: var(--card-bg);
+      border-radius: 6px;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .audio-inspector.visible {
+      display: flex;
+    }
+
+    .audio-inspector label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.9rem;
+    }
+
+    .clip-trim-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 11px;
+      margin-top: 4px;
+    }
+
+    .clip-trim-controls input {
+      width: 72px;
+      background: #333;
+      border: 1px solid #444;
+      color: white;
+      padding: 3px;
+      border-radius: 4px;
+      text-align: center;
+    }
+
+    .music-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin: 0 20px 10px 20px;
     }
 
 
     .timeline {
       border: 2px dashed #666;
-      display: flex;
-      gap: 10px;
-      padding: 10px;
-      min-height: 80px;
-      align-items: center;
-      justify-content: flex-start;
+      display: block;
+      padding: 8px;
+      min-height: 96px;
       position: relative;
       background: var(--card-bg);
-      margin: 0 20px 20px 20px;
+      margin: 0 20px 8px 20px;
       box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.2);
       border-radius: 6px;
       overflow-x: auto;
       overflow-y: hidden;
-      white-space: nowrap;
       max-width: 100%;
     }
 
     .timeline::before {
-      content: "Drop media here";
-      color: #ccc;
-      font-size: 1.1em;
+      content: "Drop media here — drag edges to trim, drag body to reorder";
+      color: #888;
+      font-size: 0.95em;
       display: none;
       position: absolute;
       left: 50%;
       top: 50%;
       transform: translate(-50%, -50%);
+      pointer-events: none;
+      white-space: nowrap;
     }
 
     .timeline:empty::before {
       display: block;
+    }
+
+    .timeline-clip {
+      position: absolute;
+      top: 8px;
+      height: 80px;
+      background: #2a3a4a;
+      border: 2px solid #5a7a9a;
+      border-radius: 6px;
+      box-sizing: border-box;
+      overflow: hidden;
+      cursor: grab;
+      user-select: none;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .timeline-clip.selected {
+      border-color: #5ecbff;
+      box-shadow: 0 0 0 1px #5ecbff;
+      z-index: 2;
+    }
+
+    .timeline-clip.transition-clip {
+      background: #3a2a4a;
+      border-color: #9a7ab0;
+      cursor: grab;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .timeline-clip .clip-thumb {
+      flex: 1;
+      width: 100%;
+      object-fit: cover;
+      pointer-events: none;
+      min-height: 0;
+    }
+
+    .timeline-clip .clip-label {
+      font-size: 10px;
+      padding: 2px 14px 2px 6px;
+      background: rgba(0, 0, 0, 0.55);
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      pointer-events: none;
+    }
+
+    .timeline-clip .clip-resize {
+      position: absolute;
+      top: 0;
+      width: 10px;
+      height: 100%;
+      cursor: ew-resize;
+      background: rgba(94, 203, 255, 0.35);
+      z-index: 3;
+    }
+
+    .timeline-clip .clip-resize.left { left: 0; }
+    .timeline-clip .clip-resize.right { right: 0; }
+
+    .timeline-clip .clip-remove {
+      position: absolute;
+      top: 2px;
+      right: 12px;
+      border: none;
+      background: rgba(0, 0, 0, 0.55);
+      color: #fff;
+      font-size: 11px;
+      line-height: 1;
+      padding: 2px 5px;
+      border-radius: 3px;
+      cursor: pointer;
+      z-index: 4;
+    }
+
+    .clip-inspector {
+      display: none;
+      margin: 0 20px 16px 20px;
+      padding: 10px 12px;
+      background: var(--card-bg);
+      border-radius: 6px;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .clip-inspector.visible {
+      display: flex;
+    }
+
+    .clip-inspector label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.9rem;
     }
 
     .timeline-item {
@@ -788,9 +973,45 @@
       </div>
 
       <div class="timeline" id="timeline"></div>
+      <div id="clipInspector" class="clip-inspector">
+        <strong id="clipInspectorTitle">Clip</strong>
+        <label id="clipTrimStartWrap">
+          <span data-i18n="trim_start">Trim start</span>
+          <input type="text" id="clipTrimStartInput" class="duration-input" placeholder="00:00:00" />
+        </label>
+        <label>
+          <span data-i18n="duration_label">Duration</span>
+          <input type="text" id="clipDurationInput" class="duration-input" placeholder="00:00:00" />
+        </label>
+        <span id="clipHint" style="opacity:0.7;font-size:0.85rem;" data-i18n="clip_hint">Drag edges to cut · drag clip to reorder</span>
+        <button type="button" id="clipRemoveBtn" data-i18n="remove_track">Remove</button>
+      </div>
       <div id="audioTimeline" class="timeline-layer audio-track-layer"></div>
+      <div id="audioInspector" class="audio-inspector">
+        <strong id="audioInspectorTitle">Track</strong>
+        <label>
+          <span data-i18n="volume">Volume</span>
+          <input type="range" id="audioVolumeSlider" min="0" max="100" value="25" />
+          <span id="audioVolumeValue">25%</span>
+        </label>
+        <label>
+          <span data-i18n="start">Start</span>
+          <input type="text" id="audioStartInput" class="duration-input" placeholder="00:00:00" />
+        </label>
+        <label>
+          <span data-i18n="duration_label">Duration</span>
+          <input type="text" id="audioDurationInput" class="duration-input" placeholder="00:00:00" />
+        </label>
+        <button type="button" id="audioRemoveBtn" data-i18n="remove_track">Remove</button>
+      </div>
 
-      <h3>Music Search</h3>
+      <h3 data-i18n="music_search">Music Search</h3>
+      <div class="music-toolbar">
+        <label class="btn-primary" style="padding: 8px 12px; cursor: pointer;">
+          <span data-i18n="upload_music">Upload music</span>
+          <input type="file" id="localAudioInput" accept=".mp3,.wav,.m4a,.ogg,.aac,audio/*" hidden />
+        </label>
+      </div>
 <div class="form-group">
   <input id="ccmixterSearchInput" type="text" placeholder="Keyword (e.g. lofi, piano, ambient)" />
   <button onclick="searchCCMixter()">🔎 Search</button>
@@ -879,6 +1100,7 @@
       let mediaItems = [];
       let allMediaItems = [];
       let timelineItems = [];
+      let timelineMap = [];
       let draggedItem = null;
       let draggedTransition = null;
       let draggedTimelineIndex = null;
@@ -1001,12 +1223,9 @@
 
           div.innerHTML = `
       <div><strong>${track.name}</strong> – ${track.artist_name}</div>
-      <audio controls preload="none" style="width: 100%; margin-top: 4px;"></audio>
+      <audio controls preload="none" src="${track.audio}" style="width: 100%; margin-top: 4px;"></audio>
       <small>License: <a href="${track.license_ccurl}" target="_blank">${track.license_ccurl}</a></small>
     `;
-
-          const audioEl = div.querySelector('audio');
-          attachLazyAudioSrc(audioEl, track.audio);
 
           div.addEventListener('dragstart', (e) => {
             e.dataTransfer.setData('application/json', JSON.stringify({
@@ -1026,29 +1245,62 @@
         });
       }
 
-      // Only assign src when the user interacts with the player — search results must not download audio eagerly.
-      function attachLazyAudioSrc(audioEl, url) {
-        if (!audioEl || !url) return;
-        audioEl.dataset.src = url;
-        audioEl.preload = 'none';
+      const AUDIO_PX_PER_SEC = 10;
+      const audioTimeline = []; // Music tracks on the audio lane
+      let totalAudioDuration = 0;
+      let selectedAudioIndex = -1;
 
-        const ensureSrc = () => {
-          if (audioEl.getAttribute('src') || !audioEl.dataset.src) return;
-          audioEl.src = audioEl.dataset.src;
-        };
-
-        audioEl.addEventListener('pointerdown', ensureSrc);
-        audioEl.addEventListener('keydown', (e) => {
-          if (e.code === 'Space' || e.code === 'Enter' || e.key === 'k') ensureSrc();
-        });
+      function formatSecToTime(sec) {
+        return formatDuration(Math.max(0, Math.round((Number(sec) || 0) * 1000)));
       }
 
-      function addAudioToTimeline(track) {
-        const start = totalAudioDuration;
+      function parseTimeToSec(str) {
+        const ms = parseDuration(str);
+        return isNaN(ms) ? NaN : ms / 1000;
+      }
+
+      function syncTotalAudioDuration() {
+        totalAudioDuration = audioTimeline.reduce((max, t) => {
+          return Math.max(max, (Number(t.start) || 0) + (Number(t.duration) || 0));
+        }, 0);
+      }
+
+      function selectAudioTrack(index) {
+        selectedAudioIndex = index;
+        const inspector = document.getElementById('audioInspector');
+        if (index < 0 || !audioTimeline[index]) {
+          inspector.classList.remove('visible');
+          renderAudioTimeline();
+          return;
+        }
+        const track = audioTimeline[index];
+        inspector.classList.add('visible');
+        document.getElementById('audioInspectorTitle').textContent = track.title || 'Track';
+        const volPct = Math.round((track.volume != null ? track.volume : 0.25) * 100);
+        document.getElementById('audioVolumeSlider').value = String(volPct);
+        document.getElementById('audioVolumeValue').textContent = `${volPct}%`;
+        document.getElementById('audioStartInput').value = formatSecToTime(track.start);
+        document.getElementById('audioDurationInput').value = formatSecToTime(track.duration);
+        renderAudioTimeline();
+      }
+
+      function removeAudioTrack(index) {
+        if (index < 0 || index >= audioTimeline.length) return;
+        audioTimeline.splice(index, 1);
+        syncTotalAudioDuration();
+        if (selectedAudioIndex === index) selectAudioTrack(-1);
+        else if (selectedAudioIndex > index) selectedAudioIndex -= 1;
+        else renderAudioTimeline();
+      }
+
+      function addAudioToTimeline(track, dropStartSec) {
         const src = track.audio || track.url || track.src;
-        const title = track.name || track.title || '🎵 Audio';
-        // Jamendo (and drag payload) already include duration — avoid downloading just for metadata.
-        const duration = Number(track.duration) || 10;
+        const title = track.name || track.title || track.filename || 'Audio';
+        const sourceDuration = Number(track.sourceDuration) || Number(track.duration) || 10;
+        const duration = Math.min(Number(track.duration) || sourceDuration, sourceDuration) || 10;
+        let start = dropStartSec != null && !isNaN(dropStartSec)
+          ? Math.max(0, dropStartSec)
+          : (audioTimeline.length ? Math.max(...audioTimeline.map(t => (t.start || 0) + (t.duration || 0))) : 0);
 
         if (!src) {
           console.warn('Cannot add audio track without a URL');
@@ -1064,13 +1316,133 @@
           license: track.license_ccurl || track.license || '',
           source: track.source || 'jamendo',
           start,
-          duration
+          duration,
+          sourceDuration,
+          volume: track.volume != null ? Number(track.volume) : 0.25
         });
 
-        totalAudioDuration += duration;
-        renderAudioTimeline();
+        syncTotalAudioDuration();
+        selectAudioTrack(audioTimeline.length - 1);
       }
 
+      async function uploadLocalAudioFile(file) {
+        const form = new FormData();
+        form.append('file', file);
+        const res = await fetch('/api/upload-audio', { method: 'POST', body: form });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || 'Audio upload failed');
+        }
+        return res.json();
+      }
+
+      async function addLocalAudioFiles(fileList, dropStartSec) {
+        const files = Array.from(fileList || []);
+        for (const file of files) {
+          try {
+            const uploaded = await uploadLocalAudioFile(file);
+            addAudioToTimeline({
+              url: uploaded.url,
+              title: uploaded.filename || file.name,
+              duration: uploaded.duration,
+              sourceDuration: uploaded.duration,
+              source: 'local',
+              volume: 0.25
+            }, dropStartSec);
+          } catch (err) {
+            console.error(err);
+            alert(err.message);
+          }
+        }
+      }
+
+      function renderAudioTimeline() {
+        const container = document.getElementById("audioTimeline");
+        container.innerHTML = "";
+        const minWidth = Math.max(800, Math.ceil(Math.max(totalAudioDuration, 1) * AUDIO_PX_PER_SEC) + 40);
+        container.style.minWidth = `${minWidth}px`;
+
+        audioTimeline.forEach((track, index) => {
+          const div = document.createElement("div");
+          div.className = "audio-block" + (index === selectedAudioIndex ? " selected" : "");
+          div.style.left = `${(track.start || 0) * AUDIO_PX_PER_SEC}px`;
+          div.style.width = `${Math.max(20, (track.duration || 1) * AUDIO_PX_PER_SEC)}px`;
+          div.title = `${track.title} (${formatSecToTime(track.start)} · ${Math.round((track.volume || 0) * 100)}%)`;
+          div.dataset.index = String(index);
+
+          const label = document.createElement('span');
+          label.textContent = track.title || 'Audio';
+          div.appendChild(label);
+
+          const removeBtn = document.createElement('button');
+          removeBtn.type = 'button';
+          removeBtn.className = 'audio-remove';
+          removeBtn.textContent = '×';
+          removeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            removeAudioTrack(index);
+          });
+          div.appendChild(removeBtn);
+
+          const resizeHandle = document.createElement('div');
+          resizeHandle.className = 'audio-resize';
+          div.appendChild(resizeHandle);
+
+          div.addEventListener('mousedown', (e) => {
+            if (e.target === resizeHandle || e.target === removeBtn) return;
+            e.preventDefault();
+            selectAudioTrack(index);
+            const startX = e.clientX;
+            const origStart = track.start || 0;
+            const onMove = (ev) => {
+              const dx = ev.clientX - startX;
+              track.start = Math.max(0, origStart + dx / AUDIO_PX_PER_SEC);
+              syncTotalAudioDuration();
+              renderAudioTimeline();
+              if (selectedAudioIndex === index) {
+                document.getElementById('audioStartInput').value = formatSecToTime(track.start);
+              }
+            };
+            const onUp = () => {
+              document.removeEventListener('mousemove', onMove);
+              document.removeEventListener('mouseup', onUp);
+            };
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onUp);
+          });
+
+          resizeHandle.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            selectAudioTrack(index);
+            const startX = e.clientX;
+            const origDur = track.duration || 1;
+            const maxDur = track.sourceDuration || origDur;
+            const onMove = (ev) => {
+              const dx = ev.clientX - startX;
+              track.duration = Math.max(0.5, Math.min(maxDur, origDur + dx / AUDIO_PX_PER_SEC));
+              syncTotalAudioDuration();
+              renderAudioTimeline();
+              if (selectedAudioIndex === index) {
+                document.getElementById('audioDurationInput').value = formatSecToTime(track.duration);
+              }
+            };
+            const onUp = () => {
+              document.removeEventListener('mousemove', onMove);
+              document.removeEventListener('mouseup', onUp);
+            };
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onUp);
+          });
+
+          div.addEventListener('click', (e) => {
+            e.stopPropagation();
+            selectAudioTrack(index);
+          });
+
+          container.appendChild(div);
+        });
+      }
 
       async function fetchJamendoTracks(query) {
         const url = `https://api.jamendo.com/v3.0/tracks/?client_id=${JAMENDO_CLIENT_ID}&format=json&limit=10&namesearch=${encodeURIComponent(query)}&audioformat=mp31`;
@@ -1079,22 +1451,72 @@
         return json.results;
       }
 
-      const audioTimeline = []; // List of Jamendo tracks added to the timeline
-      let totalAudioDuration = 0;
+      document.getElementById('audioVolumeSlider').addEventListener('input', (e) => {
+        if (selectedAudioIndex < 0) return;
+        const pct = Number(e.target.value);
+        audioTimeline[selectedAudioIndex].volume = pct / 100;
+        document.getElementById('audioVolumeValue').textContent = `${pct}%`;
+        renderAudioTimeline();
+      });
 
-      function renderAudioTimeline() {
-        const container = document.getElementById("audioTimeline");
-        container.innerHTML = "";
+      document.getElementById('audioStartInput').addEventListener('change', (e) => {
+        if (selectedAudioIndex < 0) return;
+        const sec = parseTimeToSec(e.target.value);
+        if (isNaN(sec)) {
+          e.target.value = formatSecToTime(audioTimeline[selectedAudioIndex].start);
+          return;
+        }
+        audioTimeline[selectedAudioIndex].start = Math.max(0, sec);
+        syncTotalAudioDuration();
+        renderAudioTimeline();
+      });
 
-        audioTimeline.forEach(track => {
-          const div = document.createElement("div");
-          div.className = "audio-block";
-          div.style.left = `${track.start * 10}px`; // z. B. 10px pro Sekunde
-          div.style.width = `${track.duration * 10}px`;
-          div.innerText = track.title;
-          container.appendChild(div);
-        });
-      }
+      document.getElementById('audioDurationInput').addEventListener('change', (e) => {
+        if (selectedAudioIndex < 0) return;
+        const track = audioTimeline[selectedAudioIndex];
+        const sec = parseTimeToSec(e.target.value);
+        if (isNaN(sec)) {
+          e.target.value = formatSecToTime(track.duration);
+          return;
+        }
+        track.duration = Math.max(0.5, Math.min(track.sourceDuration || sec, sec));
+        syncTotalAudioDuration();
+        renderAudioTimeline();
+      });
+
+      document.getElementById('audioRemoveBtn').addEventListener('click', () => {
+        removeAudioTrack(selectedAudioIndex);
+      });
+
+      document.getElementById('localAudioInput').addEventListener('change', async (e) => {
+        await addLocalAudioFiles(e.target.files);
+        e.target.value = '';
+      });
+
+      const audioDropZone = document.getElementById('audioTimeline');
+      audioDropZone.addEventListener('dragover', e => {
+        e.preventDefault();
+      });
+      audioDropZone.addEventListener('drop', async e => {
+        e.preventDefault();
+        const rect = audioDropZone.getBoundingClientRect();
+        const dropStartSec = Math.max(0, (e.clientX - rect.left + audioDropZone.scrollLeft) / AUDIO_PX_PER_SEC);
+
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+          await addLocalAudioFiles(e.dataTransfer.files, dropStartSec);
+          return;
+        }
+
+        try {
+          const data = e.dataTransfer.getData('application/json');
+          const parsed = JSON.parse(data);
+          if (parsed?.type === 'AUDIO') {
+            addAudioToTimeline(parsed, dropStartSec);
+          }
+        } catch (err) {
+          console.warn("Error dropping onto audio timeline:", err);
+        }
+      });
 
 
 
@@ -1140,22 +1562,6 @@
         listenToExportProgress();
       });
 
-      const audioDropZone = document.getElementById('audioTimeline');
-      audioDropZone.addEventListener('dragover', e => e.preventDefault());
-      audioDropZone.addEventListener('drop', e => {
-        e.preventDefault();
-        try {
-          const data = e.dataTransfer.getData('application/json');
-          const parsed = JSON.parse(data);
-          if (parsed?.type === 'AUDIO') {
-            addAudioToTimeline(parsed);
-          }
-        } catch (err) {
-          console.warn("Error dropping onto audio timeline:", err);
-        }
-      });
-
-
       document.getElementById("OLLAMA_ENDPOINT").addEventListener("change", () => {
         const currentValue = document.getElementById("OLLAMA_MODEL").value;
         populateOllamaModels(currentValue);
@@ -1163,7 +1569,7 @@
 
       async function populateOllamaModels(currentModel = "") {
         const select = document.getElementById("OLLAMA_MODEL");
-        endpoint = "http://127.0.0.1:3001/proxy/ollama/api/tags";
+        endpoint = "/proxy/ollama/tags";
 
 
         try {
@@ -1190,7 +1596,7 @@
 
       async function loadEnvFromServer() {
         try {
-          const res = await fetch('http://localhost:3001/api/env');
+          const res = await fetch('/api/env');
           const env = await res.json();
 
           const keys = [
@@ -1237,7 +1643,7 @@
         });
 
         try {
-          const res = await fetch('http://localhost:3001/api/env', {
+          const res = await fetch('/api/env', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(updatedEnv)
@@ -1585,28 +1991,20 @@
       timelineElement.addEventListener('drop', (e) => {
         e.preventDefault();
         if (draggedItem) {
-          const index = parseInt(draggedItem.querySelector('.duration-input')?.dataset.index);
-          if (typeof index === 'number' && !timelineItems.includes(mediaItems[index])) {
-            timelineItems.push(mediaItems[index]);
+          const index = parseInt(draggedItem.dataset.index, 10);
+          if (Number.isFinite(index) && mediaItems[index]) {
+            addToTimeline(mediaItems[index]);
           }
           draggedItem.classList.remove('dragging');
           draggedItem = null;
-          renderTimeline();
         } else if (draggedTransition) {
-          timelineItems.push(draggedTransition);
+          if (selectedClipIndex >= 0) {
+            timelineItems.splice(selectedClipIndex + 1, 0, draggedTransition);
+          } else {
+            timelineItems.push(draggedTransition);
+          }
           draggedTransition = null;
           renderTimeline();
-        } else {
-          try {
-            const data = e.dataTransfer.getData('application/json');
-            const parsed = JSON.parse(data);
-            if (parsed?.type === 'AUDIO') {
-              timelineItems.push(parsed);
-              renderTimeline();
-            }
-          } catch (err) {
-            console.warn("No valid drag-and-drop element recognized:", err);
-          }
         }
       });
 
@@ -1614,26 +2012,19 @@
         const transitions = document.querySelectorAll('.transition-item');
 
         transitions.forEach(t => {
-          // Drag & Drop wie gehabt
           t.addEventListener('dragstart', handleTransitionDragStart);
 
-          // Doppelklick zum gezielten Einfügen an der aktuellen Hover-Position
           t.addEventListener('dblclick', () => {
-            const transitionType = t.dataset.transition;
             const newTransition = {
               type: 'TRANSITION',
-              transition: transitionType,
+              transition: t.dataset.transition,
               duration: 1000,
               overlap: 500
             };
 
-            // Wenn ein Element in der Timeline aktuell per Hover hervorgehoben ist:
-            const hovered = document.querySelector('.timeline-item.hover');
-            if (hovered) {
-              const insertIndex = parseInt(hovered.dataset.index) + 1;
-              timelineItems.splice(insertIndex, 0, newTransition);
+            if (selectedClipIndex >= 0) {
+              timelineItems.splice(selectedClipIndex + 1, 0, newTransition);
             } else {
-              // Fallback: hänge es ans Ende
               timelineItems.push(newTransition);
             }
 
@@ -1666,11 +2057,18 @@
           newItem.duration = 5000; // 5 Sekunden
         }
 
+        if (newItem.type === 'VIDEO') {
+          if (newItem.trimStartMs == null) newItem.trimStartMs = 0;
+          if (newItem.sourceDurationMs == null && newItem.duration) {
+            newItem.sourceDurationMs = newItem.duration;
+          }
+        }
+
         // In die Timeline-Liste pushen
         timelineItems.push(newItem);
 
         // Aktualisiere die Timeline-Ansicht
-        renderTimeline();
+        selectClip(timelineItems.length - 1);
       }
 
 
@@ -1697,17 +2095,13 @@
         container.innerHTML = '';
 
         mediaItems.forEach((item, index) => {
-          console.log(`Rendering media ${index}:`, item);
-
           const div = document.createElement('div');
           div.className = 'media-item';
           div.draggable = true;
           div.dataset.index = index;
           div.addEventListener('dragstart', handleMediaDragStart);
 
-          // 👇 Fügt das Medium zur Timeline hinzu, wenn es doppelt geklickt wird
           div.addEventListener('dblclick', (event) => {
-            // Wenn das Target ein Input-Feld ist → nicht zur Timeline hinzufügen
             if (event.target.tagName.toLowerCase() === 'input') return;
             addToTimeline(item);
           });
@@ -1725,53 +2119,23 @@
             const videoContainer = document.createElement('div');
             videoContainer.className = 'video-wrapper';
 
-            const video = document.createElement('video');
-            video.className = 'video-preview thumb';
-            video.muted = true;
-            video.loop = true;
-            video.playsInline = true;
-            video.preload = 'none';
-            video.poster = mediaPreviewUrl(item);
-            video.dataset.src = mediaVideoUrl(item);
-            video.style.width = '120px';
-            video.style.height = 'auto';
-            video.style.borderRadius = '6px';
-            video.style.boxShadow = '0 0 6px rgba(0, 0, 0, 0.3)';
+            // Thumbnail only — avoid streaming every video on hover (major UI lag).
+            const thumb = document.createElement('img');
+            thumb.className = 'video-preview thumb';
+            thumb.loading = 'lazy';
+            thumb.src = mediaPreviewUrl(item);
+            thumb.alt = item.originalFileName || 'Video';
+            thumb.style.width = '120px';
+            thumb.style.height = 'auto';
+            thumb.style.borderRadius = '6px';
+            thumb.style.boxShadow = '0 0 6px rgba(0, 0, 0, 0.3)';
+            videoContainer.appendChild(thumb);
 
-            const ensureVideoSrc = () => {
-              if (!video.src && video.dataset.src) {
-                video.src = video.dataset.src;
-              }
-            };
-
-            video.addEventListener('loadedmetadata', () => {
-              if (video.duration && isFinite(video.duration)) {
-                item.duration = Math.round(video.duration * 1000);
-                const durationInput = div.querySelector('.duration-input');
-                if (durationInput) {
-                  durationInput.value = formatDuration(item.duration);
-                }
-              }
-            });
-
-            div.addEventListener('mouseenter', () => {
-              ensureVideoSrc();
-              video.play().catch(() => {});
-            });
-            div.addEventListener('mouseleave', () => {
-              video.pause();
-              video.currentTime = 0;
-            });
-
-            videoContainer.appendChild(video);
-
-            // 🎥 Markierung für Videos
             const badge = document.createElement('span');
             badge.className = 'video-badge';
             badge.innerHTML = '🎥';
             videoContainer.appendChild(badge);
 
-            // 🟥 LIVE-Badge, wenn isLivePhoto gesetzt ist
             if (item.isLivePhoto) {
               const repeatLabel = document.createElement('label');
               repeatLabel.textContent = '🔁 Repeats:';
@@ -1795,8 +2159,6 @@
               div.appendChild(repeatWrapper);
             }
 
-
-            // Hover plays streamed Immich video (no local download)
             div.appendChild(videoContainer);
           }
 
@@ -1851,89 +2213,281 @@
         durationEl.textContent = prefix + formatMsToTime(totalMs);
       }
 
+      const MEDIA_PX_PER_SEC = 10;
+      let selectedClipIndex = -1;
+
+      function selectClip(index, rerender = true) {
+        selectedClipIndex = index;
+        const inspector = document.getElementById('clipInspector');
+        if (index < 0 || !timelineItems[index] || timelineItems[index].type === 'TRANSITION') {
+          inspector.classList.remove('visible');
+          if (rerender) renderTimeline();
+          return;
+        }
+        const item = timelineItems[index];
+        inspector.classList.add('visible');
+        document.getElementById('clipInspectorTitle').textContent =
+          item.originalFileName || item.downloadName || item.type || 'Clip';
+        const trimWrap = document.getElementById('clipTrimStartWrap');
+        const trimInput = document.getElementById('clipTrimStartInput');
+        if (item.type === 'VIDEO') {
+          trimWrap.style.display = 'flex';
+          if (item.trimStartMs == null) item.trimStartMs = 0;
+          if (item.sourceDurationMs == null && item.duration) item.sourceDurationMs = item.duration + (item.trimStartMs || 0);
+          trimInput.value = formatDuration(item.trimStartMs || 0);
+        } else {
+          trimWrap.style.display = 'none';
+        }
+        document.getElementById('clipDurationInput').value = formatDuration(item.duration || 5000);
+        if (rerender) renderTimeline();
+      }
+
+      function clipDurationMs(item) {
+        if (item.type === 'TRANSITION') return item.duration || 1000;
+        return item.duration || 5000;
+      }
+
       function renderTimeline() {
         timelineElement.innerHTML = '';
+        const totalMs = Math.max(calculateTimelineDuration(), 1000);
+        timelineElement.style.minWidth = `${Math.max(800, (totalMs / 1000) * MEDIA_PX_PER_SEC + 40)}px`;
+
+        let t = 0;
         timelineItems.forEach((item, index) => {
+          const dur = clipDurationMs(item);
           const div = document.createElement('div');
-          div.className = 'timeline-item';
-          div.draggable = true;
-          div.dataset.index = index;
-          div.addEventListener('mouseenter', () => {
-            div.classList.add('hover');
-          });
-          div.addEventListener('mouseleave', () => {
-            div.classList.remove('hover');
-          });
-          if (item.type === 'IMAGE') {
-            const img = document.createElement('img');
-            const imageFile = item.downloadName || item.originalFileName || 'unknown.jpg';
-            img.src = mediaPreviewUrl(item) || ("/media/" + imageFile);
-            img.className = 'thumb';
-            img.loading = 'lazy';
-            div.appendChild(img);
-          } else if (item.type === 'VIDEO') {
-            const videoThumb = document.createElement('img');
-            const thumbSrc = item.thumbnail || mediaPreviewUrl(item) || `/media/${item.downloadName}`;
-            videoThumb.src = thumbSrc;
-            videoThumb.alt = item.downloadName || 'Video';
-            videoThumb.className = 'thumb';
-            videoThumb.loading = 'lazy';
-            div.appendChild(videoThumb);
-            const badge = document.createElement('span');
-            badge.className = 'video-badge';
-            badge.innerText = '🎥';
-            div.style.position = 'relative';
-            div.appendChild(badge);
+          const isTransition = item.type === 'TRANSITION';
+          div.className = 'timeline-clip' +
+            (isTransition ? ' transition-clip' : '') +
+            (index === selectedClipIndex ? ' selected' : '');
+          div.style.left = `${(t / 1000) * MEDIA_PX_PER_SEC}px`;
+          div.style.width = `${Math.max(isTransition ? 28 : 48, (dur / 1000) * MEDIA_PX_PER_SEC)}px`;
+          div.dataset.index = String(index);
+          div.title = isTransition
+            ? (item.transition || 'transition')
+            : `${item.downloadName || item.type} · ${formatDuration(dur)}`;
 
-          } else if (item.type === 'TRANSITION') {
-            div.classList.add('transition');
-
+          if (isTransition) {
             const transitionIcons = {
-              fade: '<i class="fas fa-adjust"></i>',            // Halbkreis
+              fade: '<i class="fas fa-adjust"></i>',
               wipeleft: '<i class="fas fa-arrow-left"></i>',
               slideright: '<i class="fas fa-arrow-right"></i>',
-              circleopen: '<i class="far fa-circle"></i>',       // Offener Kreis
-              circleclose: '<i class="fas fa-circle"></i>',      // Gefüllter Kreis
-              pixelize: '<i class="fas fa-th"></i>'              // Pixel/Grid-Ansicht
+              circleopen: '<i class="far fa-circle"></i>',
+              circleclose: '<i class="fas fa-circle"></i>',
+              pixelize: '<i class="fas fa-th"></i>'
             };
-            div.title = item.transition;
+            div.innerHTML = `<span style="font-size:1.2em;">${transitionIcons[item.transition] || '🔁'}</span>`;
+          } else {
+            if (item.type === 'VIDEO' && item.trimStartMs == null) item.trimStartMs = 0;
+            if (item.type === 'VIDEO' && item.sourceDurationMs == null && item.duration) {
+              item.sourceDurationMs = item.duration + (item.trimStartMs || 0);
+            }
 
-            const icon = transitionIcons[item.transition] || '🔁';
+            const thumb = document.createElement('img');
+            thumb.className = 'clip-thumb';
+            thumb.loading = 'lazy';
+            thumb.src = item.thumbnail || mediaPreviewUrl(item) ||
+              (item.downloadName ? `/media/${item.downloadName}` : '');
+            div.appendChild(thumb);
 
-            div.innerHTML = `<span style="font-size: 1.4em;">${icon}</span>`;
-          } else if (item.type === 'AUDIO') {
-            // Audio-Element separat rendern
-            const div = document.createElement('div');
-            div.className = 'audio-block';
-            div.style.left = `${(item.start || 0) / 1000 * 10}px`; // 10px pro Sekunde
-            div.style.width = `${(item.duration || 1000) / 1000 * 10}px`;
-            div.innerText = item.title || '🎵 Audio';
-            audioLayer.appendChild(div);
-            return; // <-- wichtig: nicht in der normalen Timeline rendern
+            const label = document.createElement('div');
+            label.className = 'clip-label';
+            label.textContent = item.type === 'VIDEO'
+              ? `🎥 ${formatDuration(item.trimStartMs || 0)} → ${formatDuration(dur)}`
+              : formatDuration(dur);
+            div.appendChild(label);
+
+            // Right edge: change duration (cut end / image length)
+            const rightHandle = document.createElement('div');
+            rightHandle.className = 'clip-resize right';
+            rightHandle.title = 'Trim end / duration';
+            rightHandle.addEventListener('mousedown', (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              selectClip(index);
+              const startX = e.clientX;
+              const origDur = clipDurationMs(item);
+              const onMove = (ev) => {
+                const dx = ev.clientX - startX;
+                let next = Math.max(500, origDur + (dx / MEDIA_PX_PER_SEC) * 1000);
+                if (item.type === 'VIDEO') {
+                  const sourceMs = item.sourceDurationMs || ((item.trimStartMs || 0) + origDur);
+                  const maxDur = Math.max(500, sourceMs - (item.trimStartMs || 0));
+                  next = Math.min(next, maxDur);
+                }
+                item.duration = Math.round(next);
+                document.getElementById('clipDurationInput').value = formatDuration(item.duration);
+                renderTimeline();
+              };
+              const onUp = () => {
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+              };
+              document.addEventListener('mousemove', onMove);
+              document.addEventListener('mouseup', onUp);
+            });
+            div.appendChild(rightHandle);
+
+            // Left edge on video: cut start (trim in)
+            if (item.type === 'VIDEO') {
+              const leftHandle = document.createElement('div');
+              leftHandle.className = 'clip-resize left';
+              leftHandle.title = 'Trim start';
+              leftHandle.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                selectClip(index);
+                const startX = e.clientX;
+                const origTrim = item.trimStartMs || 0;
+                const origDur = clipDurationMs(item);
+                const sourceMs = item.sourceDurationMs || (origTrim + origDur);
+                const onMove = (ev) => {
+                  const dx = ev.clientX - startX;
+                  const deltaMs = (dx / MEDIA_PX_PER_SEC) * 1000;
+                  // Dragging right edge of left handle right → later start, shorter duration
+                  let newTrim = Math.max(0, origTrim + deltaMs);
+                  let newDur = origDur - (newTrim - origTrim);
+                  if (newDur < 500) {
+                    newTrim = origTrim + origDur - 500;
+                    newDur = 500;
+                  }
+                  if (newTrim + newDur > sourceMs) {
+                    newDur = Math.max(500, sourceMs - newTrim);
+                  }
+                  item.trimStartMs = Math.round(newTrim);
+                  item.duration = Math.round(newDur);
+                  document.getElementById('clipTrimStartInput').value = formatDuration(item.trimStartMs);
+                  document.getElementById('clipDurationInput').value = formatDuration(item.duration);
+                  renderTimeline();
+                };
+                const onUp = () => {
+                  document.removeEventListener('mousemove', onMove);
+                  document.removeEventListener('mouseup', onUp);
+                };
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
+              });
+              div.appendChild(leftHandle);
+            }
           }
 
-
-
           const removeBtn = document.createElement('button');
-          removeBtn.textContent = 'X';
-          removeBtn.style.fontSize = '0.8rem';
-          removeBtn.style.color = 'red';
-          removeBtn.style.marginLeft = 'auto';
-          removeBtn.addEventListener('click', () => {
+          removeBtn.type = 'button';
+          removeBtn.className = 'clip-remove';
+          removeBtn.textContent = '×';
+          removeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
             timelineItems.splice(index, 1);
-            renderTimeline();
+            if (selectedClipIndex === index) selectClip(-1);
+            else if (selectedClipIndex > index) selectedClipIndex -= 1;
+            else renderTimeline();
           });
           div.appendChild(removeBtn);
-          div.addEventListener('dragstart', handleTimelineDragStart);
-          div.addEventListener('dragover', handleTimelineDragOver);
-          div.addEventListener('drop', handleTimelineDrop);
+
+          // Body drag = reorder
+          div.addEventListener('mousedown', (e) => {
+            if (e.target.closest('.clip-resize') || e.target.closest('.clip-remove')) return;
+            e.preventDefault();
+            selectClip(isTransition ? -1 : index, false);
+            document.querySelectorAll('.timeline-clip.selected').forEach((el) => el.classList.remove('selected'));
+            if (!isTransition) div.classList.add('selected');
+
+            const startX = e.clientX;
+            let moved = false;
+            const origLeft = parseFloat(div.style.left) || 0;
+            const ghost = div.cloneNode(true);
+            ghost.style.opacity = '0.55';
+            ghost.style.pointerEvents = 'none';
+            ghost.style.zIndex = '10';
+            timelineElement.appendChild(ghost);
+
+            const onMove = (ev) => {
+              moved = true;
+              const dx = ev.clientX - startX;
+              ghost.style.left = `${origLeft + dx}px`;
+            };
+            const onUp = (ev) => {
+              document.removeEventListener('mousemove', onMove);
+              document.removeEventListener('mouseup', onUp);
+              ghost.remove();
+              if (!moved || Math.abs(ev.clientX - startX) < 6) {
+                renderTimeline();
+                return;
+              }
+
+              const rect = timelineElement.getBoundingClientRect();
+              const x = ev.clientX - rect.left + timelineElement.scrollLeft;
+              const dropMs = (x / MEDIA_PX_PER_SEC) * 1000;
+              let acc = 0;
+              let insertAt = timelineItems.length;
+              for (let i = 0; i < timelineItems.length; i++) {
+                const mid = acc + clipDurationMs(timelineItems[i]) / 2;
+                if (dropMs < mid) {
+                  insertAt = i;
+                  break;
+                }
+                acc += clipDurationMs(timelineItems[i]);
+              }
+              const [movedItem] = timelineItems.splice(index, 1);
+              if (insertAt > index) insertAt -= 1;
+              timelineItems.splice(insertAt, 0, movedItem);
+              selectedClipIndex = isTransition ? -1 : insertAt;
+              renderTimeline();
+            };
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onUp);
+          });
+
           timelineElement.appendChild(div);
+          t += dur;
         });
+
         updateTimelineDuration();
         timelineMap = buildTimelineMap();
       }
 
+      document.getElementById('clipTrimStartInput').addEventListener('change', (e) => {
+        if (selectedClipIndex < 0) return;
+        const item = timelineItems[selectedClipIndex];
+        if (!item || item.type !== 'VIDEO') return;
+        const ms = parseDuration(e.target.value);
+        if (isNaN(ms)) {
+          e.target.value = formatDuration(item.trimStartMs || 0);
+          return;
+        }
+        const sourceMs = item.sourceDurationMs || ((item.trimStartMs || 0) + (item.duration || 0));
+        item.trimStartMs = Math.max(0, Math.min(ms, Math.max(0, sourceMs - 500)));
+        const maxDur = Math.max(500, sourceMs - item.trimStartMs);
+        if ((item.duration || 0) > maxDur) item.duration = maxDur;
+        e.target.value = formatDuration(item.trimStartMs);
+        document.getElementById('clipDurationInput').value = formatDuration(item.duration);
+        renderTimeline();
+      });
 
+      document.getElementById('clipDurationInput').addEventListener('change', (e) => {
+        if (selectedClipIndex < 0) return;
+        const item = timelineItems[selectedClipIndex];
+        if (!item || item.type === 'TRANSITION') return;
+        const ms = parseDuration(e.target.value);
+        if (isNaN(ms)) {
+          e.target.value = formatDuration(item.duration || 5000);
+          return;
+        }
+        let next = Math.max(500, ms);
+        if (item.type === 'VIDEO') {
+          const sourceMs = item.sourceDurationMs || ((item.trimStartMs || 0) + (item.duration || 0));
+          next = Math.min(next, Math.max(500, sourceMs - (item.trimStartMs || 0)));
+        }
+        item.duration = next;
+        e.target.value = formatDuration(item.duration);
+        renderTimeline();
+      });
+
+      document.getElementById('clipRemoveBtn').addEventListener('click', () => {
+        if (selectedClipIndex < 0) return;
+        timelineItems.splice(selectedClipIndex, 1);
+        selectClip(-1);
+      });
 
       function buildTimelineMap() {
         let time = 0;
@@ -2013,24 +2567,49 @@
         });
       }
 
-      function listenToExportProgress() {
-        const eventSource = new EventSource('/events');
+      let exportEventSource = null;
+
+      function appendProgressLine(msg) {
         const progressLog = document.getElementById('progressLog');
+        const line = document.createElement('div');
+        line.textContent = msg;
+        if (msg.includes('❌')) line.style.color = 'red';
+        else if (msg.includes('⚠️')) line.style.color = 'orange';
+        else if (msg.includes('✅') || msg.startsWith('EXPORT_DONE:')) line.style.color = 'lightgreen';
+        else if (msg.includes('📷') || msg.includes('🎞️')) line.style.color = '#0ff';
+        progressLog.appendChild(line);
+        progressLog.scrollTop = progressLog.scrollHeight;
+      }
 
-        eventSource.onmessage = (event) => {
+      function playExportedFile(filePath) {
+        const videoPlayer = document.getElementById('finalVideo');
+        const fileName = String(filePath).split('/').pop();
+        videoPlayer.src = '/output/' + fileName;
+        videoPlayer.load();
+        videoPlayer.play().catch(() => {});
+        const container = document.getElementById('videoContainer');
+        container.classList.add('visible');
+        container.style.display = 'block';
+        container.scrollIntoView({ behavior: 'smooth' });
+      }
+
+      function listenToExportProgress() {
+        if (exportEventSource) return exportEventSource;
+        exportEventSource = new EventSource('/events');
+        exportEventSource.onmessage = (event) => {
           const msg = event.data;
-          const line = document.createElement('div');
-          line.textContent = msg;
-
-          if (msg.includes('❌')) line.style.color = 'red';
-          else if (msg.includes('⚠️')) line.style.color = 'orange';
-          else if (msg.includes('✅')) line.style.color = 'lightgreen';
-          else if (msg.includes('📷') || msg.includes('🎞️')) line.style.color = '#0ff';
-
-          document.getElementById('progressLog').appendChild(line);
-          progressLog.scrollTop = progressLog.scrollHeight;
+          if (msg.startsWith('EXPORT_DONE:')) {
+            const filePath = msg.slice('EXPORT_DONE:'.length);
+            appendProgressLine('✅ Export complete');
+            playExportedFile(filePath);
+            return;
+          }
+          appendProgressLine(msg);
         };
-
+        exportEventSource.onerror = () => {
+          // Browser will reconnect; keep the handle.
+        };
+        return exportEventSource;
       }
 
 
@@ -2166,16 +2745,18 @@
               type: item.type,
               downloadName: item.downloadName,
               duration: item.duration,
+              trimStartMs: item.trimStartMs || 0,
               isLivePhoto: item.isLivePhoto,
               livePhotoVideoId: item.livePhotoVideoId
             }];
           }),
           audio: audioTimeline.map(track => ({
             type: 'AUDIO',
-            url: track.src,
+            url: track.src || track.url,
             title: track.title,
             duration: track.duration,
             start: track.start,
+            volume: track.volume != null ? track.volume : 0.25,
             artist: track.artist || '',
             license: track.license || '',
             source: track.source || 'jamendo'
@@ -2184,36 +2765,24 @@
         };
 
         console.log("Export-Data:", exportData);
+        const exportBtn = document.getElementById('exportBtn');
+        exportBtn.disabled = true;
+        appendProgressLine('⏳ Preparing export…');
         try {
-          // Make sure timeline originals are present locally before FFmpeg runs.
-          const ensureResponse = await fetch('/api/ensureDownloads', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ items: exportData.media })
-          });
-          if (!ensureResponse.ok) {
-            throw new Error('Could not load media before export');
-          }
-
           const response = await fetch('/api/export', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(exportData)
           });
-          if (!response.ok) throw new Error('Export failed');
+          if (!response.ok) throw new Error('Export failed to start');
           const data = await response.json();
-          const videoPlayer = document.getElementById('finalVideo');
-          const fileName = data.file.split('/').pop();
-          videoPlayer.src = '/output/' + fileName;
-          videoPlayer.load();
-          videoPlayer.play();
-          const container = document.getElementById('videoContainer');
-          container.classList.add('visible');
-          container.scrollIntoView({ behavior: 'smooth' });
-          document.getElementById('videoContainer').style.display = 'block';
+          appendProgressLine(`🚀 Export running in background (${data.jobId || 'job'})…`);
         } catch (error) {
           console.error('Export error:', error);
+          appendProgressLine('❌ ' + error.message);
           alert('An error occurred during export: ' + error.message);
+        } finally {
+          exportBtn.disabled = false;
         }
       });
 
@@ -2243,31 +2812,8 @@
       });
 
       const canvas = document.getElementById('liveCanvas');
-      const ctx = canvas.getContext('2d');
-      const previewVideo = document.getElementById('previewVideo');
+      const ctx = canvas ? canvas.getContext('2d') : null;
       const canvasTimeDisplay = document.getElementById('canvasTimeDisplay');
-
-
-      let timelineMap = [];
-
-      function buildTimelineMap() {
-        let time = 0;
-        const map = [];
-
-        timelineItems.forEach(item => {
-          const start = time;
-          const duration = item.duration || 0;
-          const end = start + duration;
-
-          if (item.type !== 'TRANSITION') {
-            map.push({ ...item, start, end });
-          }
-
-          time = end;
-        });
-
-        return map;
-      }
 
       function toggleSidebar() {
   const sidebar = document.querySelector('.sidebar');
@@ -2307,11 +2853,9 @@ function displayTracks(tracks) {
     div.draggable = true;
     div.innerHTML = `
       <div><strong>${track.name}</strong> – ${track.artist_name}</div>
-      <audio controls preload="none" style="width: 100%; margin-top: 4px;"></audio>
+      <audio controls preload="none" src="${track.audio}" style="width: 100%; margin-top: 4px;"></audio>
       <small>License: <a href="${track.license_ccurl}" target="_blank">${track.license_ccurl}</a></small>
     `;
-    const audioEl = div.querySelector('audio');
-    attachLazyAudioSrc(audioEl, track.audio);
     div.addEventListener('dragstart', (e) => {
       e.dataTransfer.setData('application/json', JSON.stringify({
         type: 'AUDIO',
@@ -2359,83 +2903,43 @@ function displayTracks(tracks) {
         ctx.drawImage(imgOrVideo, offsetX, offsetY, drawWidth, drawHeight);
       }
 
+      let previewRaf = null;
+      let lastPreviewX = 0;
+      let scrubVideo = null;
+      let scrubToken = 0;
+
       function showPreviewAt(x) {
-        if (!timelineMap.length) return;
+        if (!canvas || !ctx || !timelineMap.length) return;
 
         const totalDuration = timelineMap.at(-1)?.end || 0;
+        if (!totalDuration) return;
         const timeInMs = (x / canvas.width) * totalDuration;
-        const formattedTime = formatTime(timeInMs);
-        canvasTimeDisplay.textContent = formattedTime;
+        canvasTimeDisplay.textContent = formatTime(timeInMs);
 
         const current = timelineMap.find(item => timeInMs >= item.start && timeInMs < item.end);
-        if (!current) return;
-
-        const offset = timeInMs - current.start;
-
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         drawTimeTicks(totalDuration);
         drawTransitionMarkers(getTransitionMarkers(), totalDuration);
-
-        // Marker zeichnen
         ctx.fillStyle = 'red';
         ctx.fillRect(x, 0, 2, canvas.height - 30);
 
         const previewFrame = document.getElementById('previewFrame');
+        if (!current) return;
 
-        if (current.type === 'IMAGE') {
-          previewFrame.src = current.id
-            ? `/api/immich/thumbnail/${current.id}`
-            : `/media/${current.downloadName}`;
-          previewFrame.style.display = 'block';
-        } else if (current.type === 'VIDEO') {
-          const videoSrc = current.id
-            ? `/api/immich/video/${current.id}`
-            : `/media/${current.downloadName}`;
-          const tempVideo = document.createElement('video');
-          tempVideo.src = videoSrc;
-          tempVideo.muted = true;
-          tempVideo.preload = 'metadata';
-
-          const seekTo = () => {
-            try {
-              tempVideo.currentTime = Math.max(0, offset / 1000);
-            } catch (_) {}
-          };
-
-          tempVideo.addEventListener('loadedmetadata', seekTo, { once: true });
-          tempVideo.addEventListener('seeked', () => {
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = tempVideo.videoWidth || 320;
-            tempCanvas.height = tempVideo.videoHeight || 180;
-            const tempCtx = tempCanvas.getContext('2d');
-            tempCtx.drawImage(tempVideo, 0, 0, tempCanvas.width, tempCanvas.height);
-            previewFrame.src = tempCanvas.toDataURL('image/jpeg');
-            previewFrame.style.display = 'block';
-          }, { once: true });
-
-          // Fallback thumbnail if stream fails
-          tempVideo.addEventListener('error', () => {
-            previewFrame.src = current.id
-              ? `/api/immich/thumbnail/${current.id}`
-              : `/media/${current.downloadName}`;
-            previewFrame.style.display = 'block';
-          }, { once: true });
-        }
+        // Fast path: always show Immich/local thumbnail while scrubbing (no video decode).
+        previewFrame.src = current.id
+          ? `/api/immich/thumbnail/${current.id}`
+          : (current.thumbnail || `/media/${current.downloadName}`);
+        previewFrame.style.display = 'block';
       }
 
-
-
-
-
-
-
       function drawTimeTicks(totalDurationMs) {
-        const totalSeconds = Math.ceil(totalDurationMs / 1000);
+        const totalSeconds = Math.max(1, Math.ceil(totalDurationMs / 1000));
         const spacing = canvas.width / totalSeconds;
         const tickHeight = 30;
+        const labelEvery = Math.max(1, Math.ceil(totalSeconds / 40));
 
-        // Skalenbereich einfärben
-        ctx.fillStyle = '#000'; // dunkler Balken unten
+        ctx.fillStyle = '#000';
         ctx.fillRect(0, canvas.height - tickHeight, canvas.width, tickHeight);
 
         ctx.fillStyle = '#ccc';
@@ -2444,18 +2948,24 @@ function displayTracks(tracks) {
 
         for (let i = 0; i <= totalSeconds; i++) {
           const x = i * spacing;
-          ctx.fillRect(x, canvas.height - tickHeight, 1, 8); // kleiner Tick
-          ctx.fillText(formatTime(i * 1000), x, canvas.height - 10); // zentriert oben im Tick-Bereich
+          ctx.fillRect(x, canvas.height - tickHeight, 1, 8);
+          if (i % labelEvery === 0) {
+            ctx.fillText(formatTime(i * 1000), x, canvas.height - 10);
+          }
         }
       }
 
-
-
-      canvas.addEventListener('mousemove', (e) => {
-        const rect = canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        showPreviewAt(x);
-      });
+      if (canvas) {
+        canvas.addEventListener('mousemove', (e) => {
+          const rect = canvas.getBoundingClientRect();
+          lastPreviewX = e.clientX - rect.left;
+          if (previewRaf) return;
+          previewRaf = requestAnimationFrame(() => {
+            previewRaf = null;
+            showPreviewAt(lastPreviewX);
+          });
+        });
+      }
 
 
 

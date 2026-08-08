@@ -1,11 +1,11 @@
 const fs = require('fs');
 const path = require('path');
 const ffmpeg = require('fluent-ffmpeg');
-const { runFFmpegCommand } = require('./ffmpeg-utils');
+const { runFFmpegCommand, FFMPEG_PATH, FFPROBE_PATH } = require('./ffmpeg-utils');
 const { processImageWithDuration } = require('./ffmpeg');
 const { spawn, execSync, exec } = require('child_process');
-const { sendProgressUpdate } = require('../server'); // Importiere es aus server.js
 const LIVE_REPEAT_COUNT = process.env.LIVE_REPEAT_COUNT || 5;
+const CLIP_CONCURRENCY = Math.max(1, parseInt(process.env.CLIP_CONCURRENCY || '2', 10));
 
 function parseTimeStringToMs(timeStr) {
   const parts = timeStr.split(':');
@@ -17,7 +17,7 @@ function parseTimeStringToMs(timeStr) {
 
 function hasAudioTrack(filePath) {
   return new Promise(resolve => {
-    const ffprobe = spawn('ffprobe', ['-v', 'error', '-show_entries', 'stream=codec_type', '-of', 'default=noprint_wrappers=1:nokey=1', filePath]);
+    const ffprobe = spawn(FFPROBE_PATH, ['-v', 'error', '-show_entries', 'stream=codec_type', '-of', 'default=noprint_wrappers=1:nokey=1', filePath]);
     let stdout = '';
     ffprobe.stdout.on('data', data => stdout += data);
     ffprobe.on('close', () => resolve(stdout.includes('audio')));
@@ -26,7 +26,7 @@ function hasAudioTrack(filePath) {
 
 function hasAudioStream(filePath) {
   try {
-    const output = execSync(`ffprobe -i "${filePath}" -show_streams -select_streams a -loglevel error`).toString();
+    const output = execSync(`"${FFPROBE_PATH}" -i "${filePath}" -show_streams -select_streams a -loglevel error`).toString();
     return output.includes('[STREAM]');
   } catch (err) {
     console.error('ffprobe error:', err);
@@ -36,7 +36,7 @@ function hasAudioStream(filePath) {
 
 function getDurationInSeconds(filePath) {
   try {
-    const output = execSync(`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${filePath}"`);
+    const output = execSync(`"${FFPROBE_PATH}" -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${filePath}"`);
     return parseFloat(output.toString().trim());
   } catch (err) {
     console.error('Duration error:', err);
@@ -51,7 +51,7 @@ function ensureAudioTrack(filePath) {
   const silentFilePath = filePath.replace(/\.mp4$/, '_with_audio.mp4');
 
   if (!fs.existsSync(silentFilePath)) {
-    const cmd = `ffmpeg -y -i "${filePath}" \
+    const cmd = `"${FFMPEG_PATH}" -y -i "${filePath}" \
 -f lavfi -t ${duration} -i anullsrc=channel_layout=stereo:sample_rate=48000 \
 -r 25 -vsync 2 \
 -c:v libx264 -preset veryfast -pix_fmt yuv420p \
@@ -66,10 +66,18 @@ function ensureAudioTrack(filePath) {
 }
 
 
-async function processVideo(inputPath, outputPath) {
+async function processVideo(inputPath, outputPath, { trimStartSec = 0, durationSec } = {}) {
   return new Promise((resolve, reject) => {
-    ffmpeg(inputPath)
-      .setFfmpegPath('/usr/bin/ffmpeg')
+    const command = ffmpeg(inputPath);
+
+    if (trimStartSec > 0) {
+      command.seekInput(trimStartSec);
+    }
+    if (durationSec != null && durationSec > 0) {
+      command.duration(durationSec);
+    }
+
+    command
       .outputOptions([
         '-vf', 'scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2',
         '-r', '25',
@@ -94,11 +102,105 @@ async function processVideo(inputPath, outputPath) {
   });
 }
 
+function resolveAudioLocalPath(track, tempFolder, index) {
+  const url = track.url || track.src || '';
+  if (!url) return null;
+
+  // Local upload served as /uploads/audio/<file>
+  if (url.startsWith('/uploads/') || url.startsWith('uploads/')) {
+    const rel = url.replace(/^\//, '');
+    const localPath = path.join(__dirname, '../../', rel);
+    if (fs.existsSync(localPath)) return localPath;
+  }
+
+  if (track.localPath) {
+    const localPath = path.isAbsolute(track.localPath)
+      ? track.localPath
+      : path.join(__dirname, '../../', track.localPath);
+    if (fs.existsSync(localPath)) return localPath;
+  }
+
+  // Remote URL — download to temp
+  if (/^https?:\/\//i.test(url)) {
+    const ext = path.extname(new URL(url).pathname) || '.mp3';
+    const dest = path.join(tempFolder, `music_${index}${ext}`);
+    execSync(`curl -L "${url}" -o "${dest}"`);
+    return dest;
+  }
+
+  return null;
+}
+
+async function mixMusicTracks(videoPath, tracks, tempFolder, progressCallback = () => {}) {
+  const validTracks = (tracks || []).filter(t => t && (t.url || t.src || t.localPath));
+  if (validTracks.length === 0) return false;
+
+  const musicPaths = [];
+  for (let i = 0; i < validTracks.length; i++) {
+    progressCallback(`🎵 Preparing music track ${i + 1}/${validTracks.length}…`);
+    const localPath = resolveAudioLocalPath(validTracks[i], tempFolder, i);
+    if (!localPath) {
+      console.warn(`Skipping music track ${i}: could not resolve source`);
+      continue;
+    }
+    musicPaths.push({ path: localPath, track: validTracks[i] });
+  }
+
+  if (musicPaths.length === 0) return false;
+
+  const mixedOutputPath = videoPath.replace(/\.mp4$/i, '_mixed.mp4');
+  const inputArgs = [`-i "${videoPath}"`, ...musicPaths.map(m => `-i "${m.path}"`)].join(' ');
+
+  const filterParts = [];
+  const mixLabels = ['[0:a]'];
+
+  musicPaths.forEach((m, i) => {
+    const inputIdx = i + 1;
+    const startSec = Math.max(0, Number(m.track.start) || 0);
+    const durationSec = Math.max(0.1, Number(m.track.duration) || getDurationInSeconds(m.path));
+    const volume = m.track.volume != null ? Number(m.track.volume) : 0.25;
+    const delayMs = Math.round(startSec * 1000);
+    const label = `music${i}`;
+
+    // atrim → volume → adelay (stereo: left|right) → asetpts
+    filterParts.push(
+      `[${inputIdx}:a]atrim=0:${durationSec.toFixed(3)},asetpts=PTS-STARTPTS,volume=${volume.toFixed(3)},adelay=${delayMs}|${delayMs}[${label}]`
+    );
+    mixLabels.push(`[${label}]`);
+  });
+
+  const amixInputs = mixLabels.length;
+  filterParts.push(
+    `${mixLabels.join('')}amix=inputs=${amixInputs}:duration=first:dropout_transition=3[aout]`
+  );
+
+  const ffmpegCmd = `"${FFMPEG_PATH}" ${inputArgs} -filter_complex "${filterParts.join(';')}" \
+-map 0:v -map "[aout]" -c:v copy -c:a aac -b:a 192k -shortest -y "${mixedOutputPath}"`;
+
+  progressCallback(`🎚️ Mixing ${musicPaths.length} music track(s)…`);
+  console.log('[mixMusicTracks]', ffmpegCmd);
+  execSync(ffmpegCmd, { stdio: 'inherit' });
+  fs.renameSync(mixedOutputPath, videoPath);
+  return true;
+}
+
+async function mapWithConcurrency(items, concurrency, worker) {
+  const results = new Array(items.length);
+  let next = 0;
+  async function run() {
+    while (next < items.length) {
+      const i = next++;
+      results[i] = await worker(items[i], i);
+    }
+  }
+  const runners = Array.from({ length: Math.min(concurrency, Math.max(1, items.length)) }, () => run());
+  await Promise.all(runners);
+  return results;
+}
+
 async function generateFinalVideo(options, outputPath, progressCallback = () => {}) {
   try {
     if (!options || !options.media) throw new Error('Invalid export options: media is missing.');
-
-    
 
 const timelineAssets = options.media;
 const mediaFolder = path.join(__dirname, '../../medien');
@@ -106,9 +208,8 @@ const tempFolder = path.join(__dirname, '../../temp');
 if (!fs.existsSync(tempFolder)) fs.mkdirSync(tempFolder, { recursive: true });
 progressCallback(`🚀 Starting video export: "${options.title || 'Untitled'}"`);
 progressCallback(`🎞️ Media count: ${timelineAssets.length}`);
-const processedClips = [];
 const transitions = [];
-let videoIndex = 0;
+const clipJobs = [];
 
 for (let i = 0; i < timelineAssets.length; i++) {
   const asset = timelineAssets[i];
@@ -123,68 +224,66 @@ for (let i = 0; i < timelineAssets.length; i++) {
 
   if (!asset.downloadName) continue;
 
-  const ext = path.extname(asset.downloadName).toLowerCase();
+  const videoIndex = clipJobs.length;
   const inputPath = path.join(mediaFolder, asset.downloadName);
   const clipOutput = path.join(tempFolder, `clip_${videoIndex}.mp4`);
   const durationMs = asset.duration || 5000;
   const durationSec = durationMs / 1000;
+  const trimStartSec = Math.max(0, (Number(asset.trimStartMs) || 0) / 1000);
 
-  progressCallback(`⚙️ Processing clip ${videoIndex + 1}: ${asset.downloadName}`);
+  clipJobs.push({
+    asset,
+    videoIndex,
+    inputPath,
+    clipOutput,
+    durationMs,
+    durationSec,
+    trimStartSec
+  });
+}
+
+if (clipJobs.length === 0) {
+  throw new Error('❌ No clips available – cannot create video.');
+}
+
+progressCallback(`⚙️ Encoding ${clipJobs.length} clip(s) (concurrency ${CLIP_CONCURRENCY})…`);
+
+const processedClips = await mapWithConcurrency(clipJobs, CLIP_CONCURRENCY, async (job) => {
+  const { asset, inputPath, clipOutput, durationMs, durationSec, trimStartSec, videoIndex } = job;
+  progressCallback(`⚙️ Processing clip ${videoIndex + 1}/${clipJobs.length}: ${asset.downloadName}`);
 
   if (asset.type === 'IMAGE') {
     await processImageWithDuration(inputPath, clipOutput, durationSec);
     progressCallback(`🖼️ Image converted: ${asset.downloadName}`);
   } else {
-    await processVideo(inputPath, clipOutput);
-    progressCallback(`🎞️ Video processed: ${asset.downloadName}`);
+    await processVideo(inputPath, clipOutput, { trimStartSec, durationSec });
+    progressCallback(`🎞️ Video processed: ${asset.downloadName} (trim ${trimStartSec.toFixed(2)}s, ${durationSec.toFixed(2)}s)`);
   }
 
   const clipWithAudio = ensureAudioTrack(clipOutput);
+  progressCallback(`📦 Clip saved (${videoIndex + 1}/${clipJobs.length}): ${asset.downloadName}`);
 
-  processedClips.push({
+  return {
     clipOutput: clipWithAudio,
     duration: durationMs,
     durationSec,
     hasAudio: true
-  });
-
-  progressCallback(`📦 Clip saved (${videoIndex + 1}/${timelineAssets.length}): ${asset.downloadName}`);
-  videoIndex++;
-}
-
-if (processedClips.length === 0) {
-  throw new Error('❌ No clips available – cannot create video.');
-}
+  };
+});
 
 progressCallback(`🧰 Applying transitions…`);
 // Music is mixed afterwards — do not pull remote audio URLs into the transition encode.
 await createFinalVideoWithTransitions(processedClips, outputPath, transitions);
 
-if (Array.isArray(options.audio) && options.audio.length > 0 && options.audio[0].url) {
-  const audioUrl = options.audio[0].url;
-  const audioTempPath = path.join(tempFolder, 'temp_audio.mp3');
-  const mixedOutputPath = outputPath.replace('.mp4', '_mixed.mp4');
-
-  progressCallback(`🎵 Downloading music for mix: ${audioUrl}`);
-  execSync(`curl -L "${audioUrl}" -o "${audioTempPath}"`);
-
-  const ffmpegCmd = `ffmpeg -i "${outputPath}" -i "${audioTempPath}" \
--filter_complex "[1:a]volume=0.09[aquiet];[0:a][aquiet]amix=inputs=2:duration=first:dropout_transition=3[aout]" \
--map 0:v -map "[aout]" -c:v copy -c:a aac -shortest -y "${mixedOutputPath}"`;
-
-  progressCallback(`🎚️ Mixing final audio track…`);
-  execSync(ffmpegCmd, { stdio: 'inherit' });
-
-  fs.renameSync(mixedOutputPath, outputPath);
+const mixed = await mixMusicTracks(outputPath, options.audio, tempFolder, progressCallback);
+if (mixed) {
   progressCallback(`✅ Final audio mix complete: ${outputPath}`);
 } else {
   progressCallback(`🎧 No additional audio track – keeping clip audio.`);
 }
 
-
-
   progressCallback(`✅ Export complete: ${outputPath}`);
-
+  progressCallback(`EXPORT_DONE:${outputPath}`);
 
 progressCallback(`🧹 Cleanup finished.`);
 return outputPath;
@@ -192,6 +291,7 @@ return outputPath;
 
   } catch (error) {
     console.error("❌ Error in generateFinalVideo:", error);
+    progressCallback(`❌ Export failed: ${error.message}`);
     throw error;
   }
   
@@ -271,7 +371,7 @@ function createFinalVideoWithTransitions(mediaFiles, outputPath, transitions = [
     const concatList = mediaFiles.map(f => `file '${f.clipOutput}'`).join('\n');
     fs.writeFileSync(concatListPath, concatList);
   
-    const ffmpegConcatCmd = `ffmpeg -f concat -safe 0 -i "${concatListPath}" -vsync 2 -c:v libx264 -preset fast -crf 23 -c:a aac -b:a 192k -y "${outputPath}"`;
+    const ffmpegConcatCmd = `"${FFMPEG_PATH}" -f concat -safe 0 -i "${concatListPath}" -vsync 2 -c:v libx264 -preset fast -crf 23 -c:a aac -b:a 192k -y "${outputPath}"`;
     console.log('[createFinalVideoWithTransitions] FFmpeg concat (no transitions):\n' + ffmpegConcatCmd);
     execSync(ffmpegConcatCmd, { stdio: 'inherit' });
   
@@ -321,7 +421,7 @@ if (mediaFiles.length > transitions.length + 1) {
 }
 
 const filterComplex = [...filterParts, ...audioParts].join('; ');
-const ffmpegCommand = `ffmpeg ${inputArgs} -filter_complex "${filterComplex}" -map "${finalVideoOut}" -map "${finalAudioOut}" -c:v libx264 -crf 23 -preset fast -c:a aac -b:a 192k -y "${outputPath}"`;
+const ffmpegCommand = `"${FFMPEG_PATH}" ${inputArgs} -filter_complex "${filterComplex}" -map "${finalVideoOut}" -map "${finalAudioOut}" -c:v libx264 -crf 23 -preset fast -c:a aac -b:a 192k -y "${outputPath}"`;
 
   console.log('[createFinalVideoWithTransitions] FFmpeg Command:\n' + ffmpegCommand);
   execSync(ffmpegCommand, { stdio: 'inherit' });

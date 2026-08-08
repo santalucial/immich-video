@@ -1,4 +1,4 @@
-const { runFFmpegCommand } = require('./ffmpeg-utils');
+const { runFFmpegCommand, FFMPEG_PATH } = require('./ffmpeg-utils');
 const fs = require('fs');
 const exifParser = require('exif-parser');
 
@@ -17,7 +17,7 @@ function getImageRotation(inputPath) {
 async function checkNVENC() {
   const { exec } = require('child_process');
   return new Promise((resolve) => {
-    exec("ffmpeg -encoders | grep nvenc", (error, stdout) => {
+    exec(`"${FFMPEG_PATH}" -encoders | grep nvenc`, (error, stdout) => {
       if (error || !stdout.includes("h264_nvenc")) {
         console.warn("⚠ NVENC not available! Falling back to libx264.");
         resolve(false);

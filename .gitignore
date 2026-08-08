@@ -4,6 +4,8 @@ medien/
 src/processing/medien/
 temp/
 public/output/
+uploads/
+
 # Environment files
 .env
 

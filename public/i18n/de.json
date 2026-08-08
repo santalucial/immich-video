@@ -17,6 +17,14 @@
     "transitions": "Übergänge",
     "add_random_transitions": "Alle mit Zufallsü. hinzufügen",
     "add_all_media": "Alle Medien hinzufügen",
-    "total_duration": "Gesamtdauer: "
+    "total_duration": "Gesamtdauer: ",
+    "music_search": "Musiksuche",
+    "upload_music": "Musik hochladen",
+    "volume": "Lautstärke",
+    "start": "Start",
+    "duration_label": "Dauer",
+    "trim_start": "Zuschnitt-Start",
+    "remove_track": "Entfernen",
+    "clip_hint": "Kanten ziehen zum Schneiden · Clip ziehen zum Umsortieren"
   }
   
